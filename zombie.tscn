@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://wcdpg1v26boh"]
+
+[ext_resource type="Script" uid="uid://dwdroigwms754" path="res://zombie.gd" id="1_uiaus"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_roy8y"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_jmu02"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_eseir"]
+albedo_color = Color(0.35735336, 0.5317628, 0.11377355, 1)
+
+[node name="zombie" type="CharacterBody3D" unique_id=205117901]
+script = ExtResource("1_uiaus")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=701575040]
+shape = SubResource("CapsuleShape3D_roy8y")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1405446319]
+mesh = SubResource("CapsuleMesh_jmu02")
+surface_material_override/0 = SubResource("StandardMaterial3D_eseir")
+
+[node name="NavigationAgent3D" type="NavigationAgent3D" parent="." unique_id=1142442518]

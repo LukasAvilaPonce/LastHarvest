@@ -1,0 +1,50 @@
+[gd_scene format=3 uid="uid://vfddwx8ei4tr"]
+
+[ext_resource type="PackedScene" uid="uid://x3pvtugpvhbk" path="res://jugador.tscn" id="1_a202f"]
+[ext_resource type="Script" uid="uid://dg2g28wg8ihwc" path="res://node_3d.gd" id="1_r3fl7"]
+[ext_resource type="PackedScene" uid="uid://wcdpg1v26boh" path="res://zombie.tscn" id="3_a0tk4"]
+
+[sub_resource type="NavigationMesh" id="NavigationMesh_noarx"]
+vertices = PackedVector3Array(-24.5, 1.5, -24.5, -24.5, 1.5, 24.5, 24.5, 1.5, 24.5, 24.5, 1.5, -24.5)
+polygons = [PackedInt32Array(3, 2, 0), PackedInt32Array(0, 2, 1)]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_noarx"]
+albedo_color = Color(0.11206239, 0.11536925, 0.11915373, 1)
+
+[node name="mundo" type="Node3D" unique_id=260028482]
+script = ExtResource("1_r3fl7")
+
+[node name="NavigationRegion3D" type="NavigationRegion3D" parent="." unique_id=931605985]
+navigation_mesh = SubResource("NavigationMesh_noarx")
+
+[node name="CSGBox3D" type="CSGBox3D" parent="NavigationRegion3D" unique_id=1080763031]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+use_collision = true
+size = Vector3(50, 1, 50)
+material = SubResource("StandardMaterial3D_noarx")
+
+[node name="jugador" parent="." unique_id=1981015531 instance=ExtResource("1_a202f")]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=428786789]
+shadow_enabled = true
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=540095131]
+
+[node name="Label" type="Label" parent="CanvasLayer" unique_id=1991532915]
+custom_minimum_size = Vector2(20, 20)
+offset_right = 40.0
+offset_bottom = 23.0
+theme_override_font_sizes/font_size = 24
+text = "Semillas: 0"
+
+[node name="Label2" type="Label" parent="CanvasLayer" unique_id=1320567761]
+custom_minimum_size = Vector2(20, 60)
+offset_left = 1.0
+offset_top = 39.0
+offset_right = 105.0
+offset_bottom = 99.0
+theme_override_font_sizes/font_size = 24
+text = "Vida: 100"
+
+[node name="zombie" parent="." unique_id=205117901 instance=ExtResource("3_a0tk4")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 2, 0)
