@@ -3,6 +3,8 @@
 [ext_resource type="PackedScene" uid="uid://x3pvtugpvhbk" path="res://jugador.tscn" id="1_a202f"]
 [ext_resource type="Script" uid="uid://dg2g28wg8ihwc" path="res://node_3d.gd" id="1_r3fl7"]
 [ext_resource type="PackedScene" uid="uid://wcdpg1v26boh" path="res://zombie.tscn" id="3_a0tk4"]
+[ext_resource type="Script" uid="uid://bbm10knxyn2v1" path="res://inventario_ui.gd" id="3_r3fl7"]
+[ext_resource type="Script" uid="uid://bs3wuf1gv8n88" path="res://EfectosVida.gd" id="4_jka67"]
 
 [sub_resource type="NavigationMesh" id="NavigationMesh_noarx"]
 vertices = PackedVector3Array(-24.5, 1.5, -24.5, -24.5, 1.5, 24.5, 24.5, 1.5, 24.5, 24.5, 1.5, -24.5)
@@ -30,21 +32,27 @@ shadow_enabled = true
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=540095131]
 
-[node name="Label" type="Label" parent="CanvasLayer" unique_id=1991532915]
-custom_minimum_size = Vector2(20, 20)
-offset_right = 40.0
-offset_bottom = 23.0
-theme_override_font_sizes/font_size = 24
-text = "Semillas: 0"
+[node name="EfectosVida" type="ColorRect" parent="CanvasLayer" unique_id=2043331699]
+offset_right = 1918.0
+offset_bottom = 1080.0
+script = ExtResource("4_jka67")
 
 [node name="Label2" type="Label" parent="CanvasLayer" unique_id=1320567761]
 custom_minimum_size = Vector2(20, 60)
-offset_left = 1.0
-offset_top = 39.0
-offset_right = 105.0
-offset_bottom = 99.0
+offset_left = 3.0
+offset_right = 107.0
+offset_bottom = 60.0
 theme_override_font_sizes/font_size = 24
 text = "Vida: 100"
+
+[node name="InventarioUI" type="Control" parent="CanvasLayer" unique_id=2017755592]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 5.0
+offset_top = 3.0
+offset_right = 45.0
+offset_bottom = 43.0
+script = ExtResource("3_r3fl7")
 
 [node name="zombie" parent="." unique_id=205117901 instance=ExtResource("3_a0tk4")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 2, 0)
