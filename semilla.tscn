@@ -3,19 +3,24 @@
 [ext_resource type="Script" uid="uid://doe2f2sery1iq" path="res://semilla.gd" id="1_tssxw"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_hnfh4"]
+radius = 5.0
 
 [sub_resource type="SphereMesh" id="SphereMesh_tssxw"]
 
 [node name="semilla" type="Area3D" unique_id=878021429]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 script = ExtResource("1_tssxw")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=370817760]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("SphereShape3D_hnfh4")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=297563030]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 mesh = SubResource("SphereMesh_tssxw")
 
 [node name="Label3D" type="Label3D" parent="." unique_id=57461810]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
 pixel_size = 0.01
+billboard = 1
 text = "[E] Semilla"

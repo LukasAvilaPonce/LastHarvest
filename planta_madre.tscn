@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://c3bivt7wlbv8q"]
+
+[ext_resource type="Script" uid="uid://bt0c3l44kqkk" path="res://node_3d.gd" id="1_kgq2r"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lvapl"]
+albedo_color = Color(0.7318183, 0.00041738988, 0.7336359, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_7thog"]
+material = SubResource("StandardMaterial3D_lvapl")
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_kgq2r"]
+
+[node name="Planta madre" type="StaticBody3D" unique_id=530842536]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+script = ExtResource("1_kgq2r")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1289104209]
+transform = Transform3D(5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 0, 0)
+mesh = SubResource("BoxMesh_7thog")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1386282941]
+transform = Transform3D(5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 0, 0)
+shape = SubResource("BoxShape3D_kgq2r")
+debug_color = Color(1.3235956e-06, 0.6496559, 0.14738744, 0.41960785)

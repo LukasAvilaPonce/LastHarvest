@@ -1,0 +1,36 @@
+[gd_scene format=3 uid="uid://bxelceorfloef"]
+
+[ext_resource type="Script" uid="uid://dsuvm8mh0g2x8" path="res://planta.gd" id="1_wh65v"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ao2rp"]
+albedo_color = Color(1, 0.21176471, 0.13725491, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_wh65v"]
+material = SubResource("StandardMaterial3D_ao2rp")
+radius = 0.685
+height = 1.845
+radial_segments = 77
+rings = 37
+is_hemisphere = true
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_wh65v"]
+radius = 1.0
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_6ncsi"]
+radius = 5.0
+
+[node name="Planta" type="CharacterBody3D" unique_id=423647639]
+script = ExtResource("1_wh65v")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=2094291027]
+mesh = SubResource("SphereMesh_wh65v")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1970693444]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("SphereShape3D_wh65v")
+
+[node name="Area3D" type="Area3D" parent="." unique_id=942127864]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D" unique_id=23964470]
+shape = SubResource("SphereShape3D_6ncsi")
