@@ -18,6 +18,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 SistemaXP="*res://sistema_xp.gd"
+GestorMusica="*res://gestor_musica.gd"
 
 [display]
 
@@ -86,6 +87,11 @@ saltar={
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":32,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
 ]
 }
+disparar={
+"deadzone": 0.2,
+"events": [Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"button_mask":0,"position":Vector2(0, 0),"global_position":Vector2(0, 0),"factor":1.0,"button_index":1,"canceled":false,"pressed":false,"double_click":false,"script":null)
+]
+}
 
 [physics]
 
@@ -98,11 +104,10 @@ renderer/rendering_method="mobile"
 lights_and_shadows/directional_shadow/size=1024
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=0
 textures/default_filters/anisotropic_filtering_level=0
-textures/decals/filter=0
-textures/light_projectors/filter=0
-environment/defaults/default_clear_color=Color(0.05, 0.05, 0.08, 1)
 environment/ssao/quality=0
 environment/ssil/quality=0
+textures/decals/filter=0
+textures/light_projectors/filter=0
 environment/glow/upscale_mode=0
 global_illumination/sdfgi/probe_ray_count=0
-anti_aliasing/quality/screen_space_aa=0
+environment/defaults/default_clear_color=Color(0.4, 0.5, 0.7, 1)

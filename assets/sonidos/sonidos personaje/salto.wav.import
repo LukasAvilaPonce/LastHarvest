@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://bjus10nc5tpjd"
+path="res://.godot/imported/salto.wav-1b5bfcfee1c07410c72b3de828ff1789.sample"
+
+[deps]
+
+source_file="res://assets/sonidos/sonidos personaje/salto.wav"
+dest_files=["res://.godot/imported/salto.wav-1b5bfcfee1c07410c72b3de828ff1789.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

@@ -4,6 +4,7 @@ extends StaticBody3D
 @export var hp_maximo := 500
 var hp := 500
 var muriendo := false
+var timer_mejora_drop := 15.0
 
 # ─── NODOS Y VISUAL ───────────────────────────────────────────────
 @onready var mesh := $MeshInstance3D
@@ -22,11 +23,61 @@ func _ready():
 	material.albedo_color = COLOR_NORMAL
 	mesh.material_override = material
 	barra = preload("res://barra_vida.gd").new()
-	barra.position = Vector3(0, 7, 0)
+	barra.position = Vector3(0, 4, 0)
 	add_child(barra)
 	barra.crear(3.0, 0.25)
 	barra.actualizar(hp, hp_maximo, "Planta Madre")
-	print("Planta Madre lista — HP: ", hp)
+	call_deferred("_fix_posicion")
+
+func _fix_posicion():
+	# Centrar hijos que tienen offsets incorrectos
+	var base_node = get_node_or_null("base")
+	if base_node != null:
+		base_node.position = Vector3(0, 0, 0)
+	var mesh_node = get_node_or_null("MeshInstance3D")
+	if mesh_node != null:
+		mesh_node.position = Vector3(0, 0, 0)
+	var col_node = get_node_or_null("CollisionShape3D")
+	if col_node != null:
+		col_node.position = Vector3(0, 0, 0)
+	# Mover Planta Madre dentro del mapa si está fuera
+	if abs(global_position.x) > 45 or abs(global_position.z) > 22:
+		global_position = Vector3(40, 1.0, 0)
+	print("Planta Madre en: ", global_position)
+
+func _process(delta):
+	if muriendo:
+		return
+	var mundo = get_tree().current_scene
+	if mundo == null:
+		return
+	var estado = mundo.get("estado_actual")
+	if estado == null:
+		return
+	# Solo dropear mejoras durante oleadas (no loot ni espera)
+	if estado != 2 and estado != 3 and estado != 5:
+		return
+	# Limitar mejoras en el mapa (max 3)
+	var mejoras_en_mapa = 0
+	for child in get_tree().current_scene.get_children():
+		if child.has_method("recoger_mejora") or (child.get("recogida") != null and child.name.begins_with("@")):
+			mejoras_en_mapa += 1
+	if mejoras_en_mapa >= 3:
+		return
+	timer_mejora_drop -= delta
+	if timer_mejora_drop <= 0:
+		timer_mejora_drop = 15.0
+		_dropear_mejora()
+
+func _dropear_mejora():
+	var plantas = get_tree().get_nodes_in_group("plantas")
+	if plantas.size() == 0:
+		return
+	var mejora = preload("res://pickup_mejora.gd").new()
+	get_tree().current_scene.add_child(mejora)
+	var pos_mej = Vector3(global_position.x - 5 + randf_range(-2, 2), global_position.y + 1.5, global_position.z + randf_range(-3, 3))
+	mejora.global_position = pos_mej
+	print("Mejora dropeada en: ", snapped(pos_mej, Vector3(0.1,0.1,0.1)))
 
 # ─── DAÑO ─────────────────────────────────────────────────────────
 func recibir_dano(cantidad: int):
@@ -73,23 +124,55 @@ func dropear_loot(numero_oleada: int):
 	if numero_oleada == 0:
 		_dropear_arma()
 
-	var agua  = 10 + (numero_oleada * 10)
-	var abono = 10 + (numero_oleada * 10)
-	var cant_semillas = 5 + (numero_oleada * 2)
-
-	jugador_nodo.agregar_item("agua", agua)
-	jugador_nodo.agregar_item("abono", abono)
-
-	var keys_semillas = [
-		"semillas_caminante", "semillas_girasol", "semillas_hongo",
-		"semillas_enredadera", "semillas_chile", "semillas_arbol"
+	# Drop fijo: 3 caminantes, 2 girasol
+	var drops = [
+		{"key": "semillas_caminante", "cant": 3},
+		{"key": "semillas_girasol", "cant": 2},
 	]
-	for _i in range(cant_semillas):
-		var key = keys_semillas[randi() % keys_semillas.size()]
-		jugador_nodo.agregar_item(key, 1)
+	var desbloqueadas = [0, 1]
+	if jugador_nodo.get("plantas_desbloqueadas") != null:
+		desbloqueadas = jugador_nodo.plantas_desbloqueadas
+	var extras = {2: "semillas_hongo", 3: "semillas_enredadera", 4: "semillas_chile", 5: "semillas_arbol"}
+	for idx in desbloqueadas:
+		if extras.has(idx):
+			drops.append({"key": extras[idx], "cant": 2})
+
+	print("=== DROP LOOT desde Planta Madre en: ", global_position, " ===")
+	var pos_base = global_position
+	var item_idx = 0
+	var total_items = 0
+	for d in drops:
+		total_items += d["cant"]
+	for d in drops:
+		for _i in range(d["cant"]):
+			var pickup = preload("res://pickup_semilla.gd").new()
+			pickup.tipo_semilla = d["key"]
+			pickup.cantidad = 1
+			get_tree().current_scene.add_child(pickup)
+			var angulo = (float(item_idx) / max(total_items, 1)) * TAU
+			var drop_pos = Vector3(pos_base.x - 3 + cos(angulo) * 3, pos_base.y + 1.5, pos_base.z + sin(angulo) * 3)
+			pickup.global_position = drop_pos
+			print("  Drop ", d["key"], " en: ", snapped(drop_pos, Vector3(0.1,0.1,0.1)))
+			item_idx += 1
+
+	var agua_p = preload("res://pickup_recurso.gd").new()
+	agua_p.tipo = "agua"
+	agua_p.cantidad = 10
+	get_tree().current_scene.add_child(agua_p)
+	var pos_agua = Vector3(pos_base.x - 5, pos_base.y + 1.5, pos_base.z - 2)
+	agua_p.global_position = pos_agua
+	print("  Drop agua x10 en: ", snapped(pos_agua, Vector3(0.1,0.1,0.1)))
+
+	var abono_p = preload("res://pickup_recurso.gd").new()
+	abono_p.tipo = "abono"
+	abono_p.cantidad = 10
+	get_tree().current_scene.add_child(abono_p)
+	var pos_abono = Vector3(pos_base.x - 5, pos_base.y + 1.5, pos_base.z + 2)
+	abono_p.global_position = pos_abono
+	print("  Drop abono x10 en: ", snapped(pos_abono, Vector3(0.1,0.1,0.1)))
 
 	_efecto_loot_drop()
-	print("Loot oleada ", numero_oleada, " — Agua: +", agua, " Abono: +", abono, " Semillas: +", cant_semillas)
+	print("=== FIN DROP ===")
 
 func _efecto_loot_drop():
 	var colores = [
@@ -143,8 +226,52 @@ func _efecto_loot_drop():
 func _dropear_arma():
 	var arma = preload("res://pickup_arma.gd").new()
 	get_tree().current_scene.add_child(arma)
-	arma.global_position = global_position + Vector3(-5, 1, 0)
-	print("Planta Madre dropeó un arma!")
+	var pos_arma = Vector3(global_position.x - 7, global_position.y + 1.5, global_position.z)
+	arma.global_position = pos_arma
+	print("Arma dropeada en: ", snapped(pos_arma, Vector3(0.1,0.1,0.1)))
+	_efecto_drop_arma()
+
+func _efecto_drop_arma():
+	var pos_arma = Vector3(global_position.x - 7, global_position.y + 1, global_position.z)
+
+	material.albedo_color = Color(0.0, 1.0, 0.3)
+	var tw_mat = create_tween()
+	tw_mat.tween_property(material, "albedo_color", COLOR_NORMAL, 1.0)
+
+	var onda = MeshInstance3D.new()
+	var mesh_onda = TorusMesh.new()
+	mesh_onda.inner_radius = 0.3
+	mesh_onda.outer_radius = 0.6
+	onda.mesh = mesh_onda
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color(0.0, 1.0, 0.3, 0.7)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	onda.material_override = mat
+	onda.global_position = pos_arma
+	get_tree().current_scene.add_child(onda)
+	var tw = onda.create_tween()
+	tw.tween_property(onda, "scale", Vector3(5, 1, 5), 1.0).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(mat, "albedo_color:a", 0.0, 1.0)
+	tw.tween_callback(onda.queue_free)
+
+	for i in range(6):
+		var part = MeshInstance3D.new()
+		var mesh_p = SphereMesh.new()
+		mesh_p.radius = 0.15
+		mesh_p.height = 0.3
+		part.mesh = mesh_p
+		var mat_p = StandardMaterial3D.new()
+		mat_p.albedo_color = Color(0.0, 1.0, 0.3, 0.8)
+		mat_p.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat_p.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		part.material_override = mat_p
+		part.global_position = pos_arma + Vector3(randf_range(-1, 1), -0.5, randf_range(-1, 1))
+		get_tree().current_scene.add_child(part)
+		var tw_p = part.create_tween()
+		tw_p.tween_property(part, "global_position:y", pos_arma.y + 2, 1.2)
+		tw_p.parallel().tween_property(mat_p, "albedo_color:a", 0.0, 1.2)
+		tw_p.tween_callback(part.queue_free)
 
 # ─── MUERTE → GAME OVER ───────────────────────────────────────────
 func _morir():

@@ -5,16 +5,17 @@ extends CharacterBody3D
 @export var gravedad := 9.8
 @export var distancia_perseguir := 500.0
 @export var distancia_atacar := 2.5
-@export var dano := 10
+@export var dano := 15
 @export var tiempo_entre_ataques := 1
 
 # ─── ESTADO ───────────────────────────────────────────────────────
 var jugador: Node3D = null
 var objetivo_actual: Node3D = null
 var puede_atacar := true
-var hp := 50
+var hp := 80
 var muriendo := false
 var timer_buscar := 0.0
+var color_base := Color(0.9, 0.9, 0.9)
 
 # ─── NODOS ────────────────────────────────────────────────────────
 @onready var nav: NavigationAgent3D = get_node_or_null("NavigationAgent3D")
@@ -41,12 +42,13 @@ func _ready():
 	if anim != null:
 		anim.root_motion_track = NodePath("")
 		anim.play("zombie idle/mixamo_com")
-	_colorear(Color(0.9, 0.9, 0.9))
+	color_base = Color(0.9, 0.9, 0.9)
+	_colorear(color_base)
 	var barra = preload("res://barra_vida.gd").new()
 	barra.position = Vector3(0, 2.5, 0)
 	add_child(barra)
 	barra.crear(1.0, 0.1)
-	barra.actualizar(hp, 50, "Zombie")
+	barra.actualizar(hp, 80, "Zombie")
 
 func _colorear(color: Color):
 	for child in get_children():
@@ -181,7 +183,8 @@ func recibir_dano(cantidad: int):
 				barra_node = child
 				break
 	if barra_node != null:
-		barra_node.actualizar(hp, 50, "Zombie")
+		barra_node.actualizar(hp, 80, "Zombie")
+	_efecto_recibir_dano()
 	print("Zombie recibió daño, HP: ", hp)
 	if hp <= 0:
 		muriendo = true
@@ -196,10 +199,27 @@ func recibir_dano(cantidad: int):
 		await get_tree().create_timer(1.5).timeout
 		queue_free()
 
+func _efecto_recibir_dano():
+	_colorear(Color(1.0, 0.2, 0.2))
+	var modelo_node = get_node_or_null("copzombie_l_actisdato")
+	if modelo_node != null:
+		var pos_orig = modelo_node.position
+		modelo_node.position = pos_orig + Vector3(randf_range(-0.2, 0.2), 0, randf_range(-0.2, 0.2))
+		var tween = create_tween()
+		tween.tween_property(modelo_node, "position", pos_orig, 0.1)
+		tween.tween_callback(func():
+			if is_inside_tree() and not muriendo:
+				_colorear(color_base)
+		)
+	else:
+		await get_tree().create_timer(0.1).timeout
+		if is_inside_tree() and not muriendo:
+			_colorear(color_base)
+
 func _dropear_cargador():
 	var cargador = preload("res://pickup_cargador.gd").new()
 	get_tree().current_scene.add_child(cargador)
-	cargador.global_position = global_position + Vector3(0, 1, 0)
+	cargador.global_position = global_position + Vector3(0, -0.5, 0)
 	print("Zombie dropeó cargador!")
 
 # ─── SEPARACIÓN MANUAL ENTRE ZOMBIES ─────────────────────────────

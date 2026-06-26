@@ -25,7 +25,8 @@ func _ready():
 		if child.has_method("actualizar"):
 			child.queue_free()
 			break
-	_colorear(Color(0.9, 0.05, 0.05))
+	color_base = Color(0.9, 0.05, 0.05)
+	_colorear(color_base)
 	_crear_barra_boss()
 	print(">>> FINAL BOSS CARGADO — 10000 HP <<<")
 

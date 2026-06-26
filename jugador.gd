@@ -43,6 +43,8 @@ var agachado := false
 var offset_agachado_actual := 0.0
 var tiempo_ultimo_espacio_modo_dios := -10.0
 var plantas_desbloqueadas := [0, 1]
+var _backup_inventario := {}
+var _backup_desbloqueadas := []
 
 # ─── ARMA ─────────────────────────────────────────────────────────
 var tiene_arma := false
@@ -51,6 +53,10 @@ var dano_bala := 5
 var puede_disparar := true
 var cadencia := 0.15
 var label_balas: Label = null
+var mejoras_disponibles := 0
+var label_mejoras: Label = null
+var audio_plantar: AudioStreamPlayer = null
+var audio_salto: AudioStreamPlayer = null
 
 # ─── SISTEMA DE OLEADAS ───────────────────────────────────────────
 var semillas_por_oleada := 5
@@ -80,14 +86,14 @@ var plantas_escenas := [
 
 # ─── INVENTARIO ───────────────────────────────────────────────────
 var inventario := {
-	"semillas_caminante": 10,
-	"semillas_girasol": 10,
-	"semillas_hongo": 5,
-	"semillas_enredadera": 5,
-	"semillas_chile": 5,
-	"semillas_arbol": 5,
-	"agua": 1000,
-	"abono": 1000,
+	"semillas_caminante": 0,
+	"semillas_girasol": 0,
+	"semillas_hongo": 0,
+	"semillas_enredadera": 0,
+	"semillas_chile": 0,
+	"semillas_arbol": 0,
+	"agua": 0,
+	"abono": 0,
 }
 
 # ─── HOTBAR ───────────────────────────────────────────────────────
@@ -152,8 +158,9 @@ func _buscar_raycast() -> RayCast3D:
 
 # ─── INIT ─────────────────────────────────────────────────────────
 func _ready():
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	global_position = Vector3(75, 2, 0)
+	call_deferred("_posicionar_jugador")
 	if camara != null:
 		posicion_original_camara = camara.position
 	else:
@@ -179,6 +186,9 @@ func _ready():
 	_crear_hotbar()
 	_crear_label_xp()
 	_crear_crosshair()
+	_crear_viewmodel()
+	_crear_audio_plantar()
+	_crear_audio_salto()
 
 # ─── INPUT ────────────────────────────────────────────────────────
 func _input(evento):
@@ -187,15 +197,18 @@ func _input(evento):
 		volando = false
 		tiempo_ultimo_espacio_modo_dios = -10.0
 		if modo_dios:
+			_backup_inventario = inventario.duplicate()
+			_backup_desbloqueadas = plantas_desbloqueadas.duplicate()
 			plantas_desbloqueadas = [0, 1, 2, 3, 4, 5]
 			for key in SEMILLAS_KEYS:
 				inventario[key] = 999
 			inventario["agua"] = 999
 			inventario["abono"] = 999
-			print("MODO DIOS ACTIVADO — todas las plantas desbloqueadas")
+			print("MODO DIOS ACTIVADO")
 		else:
-			_restaurar_desbloqueo_real()
-			print("MODO DIOS DESACTIVADO — plantas bloqueadas restauradas")
+			inventario = _backup_inventario.duplicate()
+			plantas_desbloqueadas = _backup_desbloqueadas.duplicate()
+			print("MODO DIOS DESACTIVADO — inventario restaurado")
 		_actualizar_hotbar()
 
 	if muerto:
@@ -216,6 +229,14 @@ func _input(evento):
 
 	if evento.is_action_pressed("inventario"):
 		alternar_inventario()
+
+	if inventario_abierto:
+		return
+
+	if evento is InputEventKey and evento.pressed and evento.keycode == KEY_M:
+		_usar_mejora_cercana()
+
+
 
 	if evento.is_action_pressed("plantar"):
 		_intentar_plantar()
@@ -291,6 +312,8 @@ func aplicar_gravedad(delta):
 func procesar_salto():
 	if permitir_salto and Input.is_action_just_pressed("saltar") and is_on_floor():
 		velocity.y = fuerza_salto
+		if audio_salto != null:
+			audio_salto.play()
 
 func actualizar_agachado(delta):
 	agachado = _accion_presionada(accion_agacharse) and is_on_floor() and not volando
@@ -392,6 +415,20 @@ func weapon_bob(vel: float, delta):
 		weapon_holder.position.y = lerp(weapon_holder.position.y, def_weapon_holder_pos.y, 10 * delta)
 		weapon_holder.position.x = lerp(weapon_holder.position.x, def_weapon_holder_pos.x, 10 * delta)
 
+func _posicionar_jugador():
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var madre = get_tree().get_first_node_in_group("planta_madre")
+	if madre != null:
+		global_position = Vector3(madre.global_position.x - 10, 1.0, madre.global_position.z)
+	else:
+		global_position = Vector3(25, 1.0, 0)
+	global_transform.basis = Basis()
+	var cam_h = get_node_or_null("Camholder")
+	if cam_h != null:
+		cam_h.rotation = Vector3.ZERO
+	print("JUGADOR en: ", snapped(global_position, Vector3(0.1,0.1,0.1)))
+
 func recibir_curacion(cantidad: int):
 	if muerto:
 		return
@@ -438,7 +475,7 @@ func morir():
 # ─── HUD Y EFECTOS VISUALES ───────────────────────────────────────
 func actualizar_hud_vida():
 	if hud_vida != null:
-		hud_vida.text = "Vida: " + str(vida)
+		hud_vida.text = "HP: " + str(vida) + "/" + str(vida_maxima)
 
 func actualizar_efecto_vida():
 	if efectos_vida != null and efectos_vida.has_method("actualizar_vida"):
@@ -510,6 +547,7 @@ func _crear_hotbar():
 	if canvas == null:
 		return
 
+	# Fondo principal oscuro
 	var fondo = PanelContainer.new()
 	fondo.name = "Hotbar"
 	fondo.anchor_left = 0.5
@@ -518,56 +556,69 @@ func _crear_hotbar():
 	fondo.anchor_bottom = 1.0
 	fondo.offset_left = -550
 	fondo.offset_right = 550
-	fondo.offset_top = -90
+	fondo.offset_top = -95
 	fondo.offset_bottom = -5
+	var style_fondo = StyleBoxFlat.new()
+	style_fondo.bg_color = Color(0.05, 0.05, 0.08, 0.85)
+	style_fondo.border_color = Color(0.6, 0.15, 0.1)
+	style_fondo.set_border_width_all(2)
+	style_fondo.set_corner_radius_all(6)
+	fondo.add_theme_stylebox_override("panel", style_fondo)
 	canvas.add_child(fondo)
 
 	var hbox = HBoxContainer.new()
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	hbox.add_theme_constant_override("separation", 4)
+	hbox.add_theme_constant_override("separation", 6)
 	fondo.add_child(hbox)
 
 	for i in range(NOMBRES_PLANTAS.size()):
 		var panel = PanelContainer.new()
-		panel.custom_minimum_size = Vector2(120, 55)
+		panel.custom_minimum_size = Vector2(110, 65)
 		hbox.add_child(panel)
 
 		var vbox = VBoxContainer.new()
 		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		vbox.add_theme_constant_override("separation", 2)
 		panel.add_child(vbox)
 
 		var icono = ColorRect.new()
-		icono.custom_minimum_size = Vector2(16, 16)
+		icono.custom_minimum_size = Vector2(22, 22)
 		icono.color = COLORES_PLANTAS[i]
 		vbox.add_child(icono)
 
 		var lbl = Label.new()
-		lbl.add_theme_font_size_override("font_size", 13)
+		lbl.add_theme_font_size_override("font_size", 14)
+		lbl.add_theme_color_override("font_color", Color(0.9, 0.85, 0.7))
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(lbl)
 
 		hotbar_labels[i] = lbl
 		hotbar_panels[i] = panel
 
-	var sep = VSeparator.new()
-	hbox.add_child(sep)
+	# Separador con estilo
+	var sep_rect = ColorRect.new()
+	sep_rect.custom_minimum_size = Vector2(2, 50)
+	sep_rect.color = Color(0.6, 0.15, 0.1, 0.6)
+	hbox.add_child(sep_rect)
 
 	for key in ["agua", "abono"]:
 		var panel = PanelContainer.new()
-		panel.custom_minimum_size = Vector2(90, 55)
+		panel.custom_minimum_size = Vector2(90, 65)
 		hbox.add_child(panel)
 
 		var vbox = VBoxContainer.new()
 		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		vbox.add_theme_constant_override("separation", 2)
 		panel.add_child(vbox)
 
 		var icono = ColorRect.new()
-		icono.custom_minimum_size = Vector2(16, 16)
-		icono.color = Color(0.3, 0.5, 1.0) if key == "agua" else Color(0.5, 0.3, 0.1)
+		icono.custom_minimum_size = Vector2(22, 22)
+		icono.color = Color(0.2, 0.4, 0.9) if key == "agua" else Color(0.55, 0.35, 0.15)
 		vbox.add_child(icono)
 
 		var lbl = Label.new()
-		lbl.add_theme_font_size_override("font_size", 13)
+		lbl.add_theme_font_size_override("font_size", 14)
+		lbl.add_theme_color_override("font_color", Color(0.9, 0.85, 0.7))
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(lbl)
 
@@ -577,18 +628,22 @@ func _crear_hotbar():
 
 func _actualizar_hotbar():
 	for i in range(NOMBRES_PLANTAS.size()):
+		if hotbar_panels.has(i):
+			hotbar_panels[i].visible = plantas_desbloqueadas.has(i)
 		if hotbar_labels.has(i):
 			if plantas_desbloqueadas.has(i):
 				var cant = inventario.get(SEMILLAS_KEYS[i], 0)
-				hotbar_labels[i].text = NOMBRES_PLANTAS[i] + "\n" + str(cant)
-			else:
-				var oleada_req = {2: 1, 3: 2, 4: 3, 5: 4}
-				var req = oleada_req.get(i, "?")
-				hotbar_labels[i].text = "Locked\nOleada " + str(req)
+				hotbar_labels[i].text = NOMBRES_PLANTAS[i] + "\nx" + str(cant)
 
 	for key in ["agua", "abono"]:
 		if hotbar_labels.has(key):
-			hotbar_labels[key].text = key.capitalize() + "\n" + str(inventario.get(key, 0))
+			hotbar_labels[key].text = key.capitalize() + "\nx" + str(inventario.get(key, 0))
+
+	if label_balas != null and tiene_arma:
+		if modo_dios:
+			label_balas.text = "Balas: INF"
+		else:
+			label_balas.text = "Balas: " + str(balas)
 
 	for i in hotbar_panels:
 		if not i is int:
@@ -596,12 +651,12 @@ func _actualizar_hotbar():
 		var panel = hotbar_panels[i]
 		var style = StyleBoxFlat.new()
 		if i == planta_seleccionada:
-			style.bg_color = Color(0.3, 0.6, 0.3, 0.8)
-			style.border_color = Color(1.0, 1.0, 1.0)
+			style.bg_color = Color(0.15, 0.25, 0.1, 0.9)
+			style.border_color = Color(0.8, 0.2, 0.1)
 			style.set_border_width_all(3)
 		else:
-			style.bg_color = Color(0.15, 0.15, 0.15, 0.7)
-			style.border_color = Color(0.4, 0.4, 0.4)
+			style.bg_color = Color(0.08, 0.08, 0.1, 0.7)
+			style.border_color = Color(0.3, 0.1, 0.08)
 			style.set_border_width_all(1)
 		style.set_corner_radius_all(4)
 		panel.add_theme_stylebox_override("panel", style)
@@ -777,6 +832,8 @@ func _intentar_plantar():
 	_animar_mano_plantar()
 	if inventario_ui != null:
 		inventario_ui.actualizar(inventario)
+	if audio_plantar != null:
+		audio_plantar.play()
 	print("Planta colocada [", NOMBRES_PLANTAS[planta_seleccionada], "] en: ", punto)
 
 # ─── DESBLOQUEO POR OLEADA ────────────────────────────────────────
@@ -800,10 +857,20 @@ func _mostrar_notificacion_desbloqueo(indice: int):
 	var canvas = escena_actual.get_node_or_null("CanvasLayer")
 	if canvas == null:
 		return
+
+	var fondo = ColorRect.new()
+	fondo.anchor_left = 0.25
+	fondo.anchor_right = 0.75
+	fondo.anchor_top = 0.3
+	fondo.anchor_bottom = 0.45
+	fondo.color = Color(0, 0, 0, 0.7)
+	fondo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(fondo)
+
 	var label = Label.new()
-	label.text = NOMBRES_PLANTAS[indice] + " desbloqueada!"
-	label.add_theme_font_size_override("font_size", 28)
-	label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3))
+	label.text = "NUEVA PLANTA DESBLOQUEADA!\n" + NOMBRES_PLANTAS[indice]
+	label.add_theme_font_size_override("font_size", 32)
+	label.add_theme_color_override("font_color", COLORES_PLANTAS[indice])
 	label.anchor_left = 0.5
 	label.anchor_right = 0.5
 	label.anchor_top = 0.5
@@ -813,11 +880,16 @@ func _mostrar_notificacion_desbloqueo(indice: int):
 	label.offset_top = -80
 	label.offset_bottom = -40
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	canvas.add_child(label)
-	var tween = label.create_tween()
-	tween.tween_property(label, "position:y", label.position.y - 60, 2.0)
-	tween.parallel().tween_property(label, "modulate:a", 0.0, 2.0)
-	tween.tween_callback(label.queue_free)
+	label.anchor_left = 0.0
+	label.anchor_right = 1.0
+	label.anchor_top = 0.0
+	label.anchor_bottom = 1.0
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fondo.add_child(label)
+	var tween = fondo.create_tween()
+	tween.tween_interval(2.5)
+	tween.tween_property(fondo, "modulate:a", 0.0, 0.5)
+	tween.tween_callback(fondo.queue_free)
 
 func _restaurar_desbloqueo_real():
 	var mundo = get_tree().current_scene
@@ -841,6 +913,11 @@ func recoger_arma():
 	balas = 30
 	_crear_label_balas()
 	_actualizar_label_balas()
+	var cam = _buscar_camara()
+	if cam != null:
+		var vm = cam.get_node_or_null("Viewmodel")
+		if vm != null:
+			vm.visible = true
 	print("ARMA RECOGIDA — 30 balas")
 	var canvas = escena_actual.get_node_or_null("CanvasLayer")
 	if canvas:
@@ -888,13 +965,19 @@ func _crear_label_balas():
 
 func _actualizar_label_balas():
 	if label_balas != null:
-		label_balas.text = "Balas: " + str(balas)
+		if tiene_arma:
+			label_balas.text = "Balas: " + str(balas)
+		else:
+			label_balas.text = ""
 
 func _disparar():
-	if not tiene_arma or balas <= 0 or not puede_disparar:
+	if not tiene_arma or not puede_disparar:
+		return
+	if not modo_dios and balas <= 0:
 		return
 	puede_disparar = false
-	balas -= 1
+	if not modo_dios:
+		balas -= 1
 	_actualizar_label_balas()
 
 	if camara == null:
@@ -903,7 +986,7 @@ func _disparar():
 
 	var origen = camara.global_transform.origin
 	var direccion = -camara.global_transform.basis.z
-	var destino = origen + direccion * 100.0
+	var destino = origen + direccion * 500.0
 	var space_state = get_world_3d().direct_space_state
 	var query = PhysicsRayQueryParameters3D.create(origen, destino)
 	query.exclude = [self]
@@ -918,6 +1001,7 @@ func _disparar():
 
 	_efecto_disparo(origen, punto_impacto)
 	_animar_crosshair_plantar()
+	_retroceso_arma()
 
 	await get_tree().create_timer(cadencia).timeout
 	if is_inside_tree():
@@ -934,10 +1018,138 @@ func _efecto_disparo(desde: Vector3, hasta: Vector3):
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	rayo.material_override = mat
+	get_tree().current_scene.add_child(rayo)
 	var medio = (desde + hasta) / 2.0
 	rayo.global_position = medio
-	rayo.look_at(hasta)
-	get_tree().current_scene.add_child(rayo)
+	if desde.distance_to(hasta) > 0.1:
+		rayo.look_at(hasta)
 	var tween = rayo.create_tween()
 	tween.tween_property(mat, "albedo_color:a", 0.0, 0.1)
 	tween.tween_callback(rayo.queue_free)
+
+func _retroceso_arma():
+	var cam = _buscar_camara()
+	if cam == null:
+		return
+	var vm = cam.get_node_or_null("Viewmodel")
+	if vm == null or not vm.visible:
+		return
+	var pos_base = vm.position
+	var tween = vm.create_tween()
+	tween.tween_property(vm, "position", pos_base + Vector3(0, 0.03, 0.08), 0.05)
+	tween.tween_property(vm, "position", pos_base, 0.12)
+
+# ─── VIEWMODEL (ARMA VISUAL) ─────────────────────────────────────
+func _crear_viewmodel():
+	var cam = _buscar_camara()
+	if cam == null:
+		push_warning("Viewmodel: Camera3D no encontrada")
+		return
+	if cam.get_node_or_null("Viewmodel") != null:
+		return
+	var rutas = [
+		"res://assets/arma/arma.glb",
+		"res://assets/arma.glb",
+	]
+	var escena_arma = null
+	for ruta in rutas:
+		if ResourceLoader.exists(ruta):
+			escena_arma = load(ruta)
+			print("Arma GLB cargada desde: ", ruta)
+			break
+	if escena_arma == null:
+		push_warning("Viewmodel: no se encontró arma.glb")
+		return
+	var viewmodel_root = Node3D.new()
+	viewmodel_root.name = "Viewmodel"
+	var script_vm = load("res://viewmodel.gd")
+	if script_vm != null:
+		viewmodel_root.set_script(script_vm)
+	var instancia_arma = escena_arma.instantiate()
+	instancia_arma.name = "ArmaModel"
+	viewmodel_root.add_child(instancia_arma)
+	cam.add_child(viewmodel_root)
+	print("Viewmodel GLB agregado a: ", cam.name)
+
+func _crear_audio_plantar():
+	audio_plantar = AudioStreamPlayer.new()
+	audio_plantar.name = "AudioPlantar"
+	audio_plantar.volume_db = -5.0
+	var ruta = "res://assets/sonidos/sonidos al plantar/fah.wav"
+	if ResourceLoader.exists(ruta):
+		audio_plantar.stream = load(ruta)
+		print("Sonido plantar cargado: ", ruta)
+	add_child(audio_plantar)
+
+func _crear_audio_salto():
+	audio_salto = AudioStreamPlayer.new()
+	audio_salto.name = "AudioSalto"
+	audio_salto.volume_db = -8.0
+	var ruta = "res://assets/sonidos/sonidos personaje/salto.wav"
+	if ResourceLoader.exists(ruta):
+		audio_salto.stream = load(ruta)
+	add_child(audio_salto)
+
+# ─── SISTEMA DE MEJORAS ───────────────────────────────────────────
+func recoger_mejora():
+	mejoras_disponibles += 1
+	_actualizar_label_mejoras()
+	var canvas = escena_actual.get_node_or_null("CanvasLayer")
+	if canvas:
+		var notif = Label.new()
+		notif.text = "Mejora recogida! [M] para usar en planta cercana"
+		notif.add_theme_font_size_override("font_size", 24)
+		notif.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0))
+		notif.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		notif.anchor_left = 0.5
+		notif.anchor_right = 0.5
+		notif.anchor_top = 0.35
+		notif.offset_left = -250
+		notif.offset_right = 250
+		notif.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		canvas.add_child(notif)
+		var tw = notif.create_tween()
+		tw.tween_property(notif, "offset_top", -50.0, 2.0)
+		tw.parallel().tween_property(notif, "modulate:a", 0.0, 2.0)
+		tw.tween_callback(notif.queue_free)
+
+func _usar_mejora_cercana():
+	if mejoras_disponibles <= 0:
+		return
+	var mejor_planta: Node3D = null
+	var mejor_dist := 10.0
+	for planta in get_tree().get_nodes_in_group("plantas"):
+		if is_instance_valid(planta) and planta.get("activa") and not planta.get("mejorado"):
+			var d = global_position.distance_to(planta.global_position)
+			if d < mejor_dist:
+				mejor_dist = d
+				mejor_planta = planta
+	if mejor_planta != null and mejor_planta.has_method("aplicar_mejora"):
+		mejor_planta.aplicar_mejora()
+		mejoras_disponibles -= 1
+		_actualizar_label_mejoras()
+	else:
+		print("No hay planta cercana para mejorar")
+
+func _actualizar_label_mejoras():
+	if label_mejoras == null:
+		var canvas = escena_actual.get_node_or_null("CanvasLayer")
+		if canvas == null:
+			return
+		label_mejoras = Label.new()
+		label_mejoras.name = "LabelMejoras"
+		label_mejoras.anchor_left = 1.0
+		label_mejoras.anchor_right = 1.0
+		label_mejoras.offset_left = -200
+		label_mejoras.offset_right = -10
+		label_mejoras.offset_top = 40
+		label_mejoras.offset_bottom = 70
+		label_mejoras.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		label_mejoras.add_theme_font_size_override("font_size", 20)
+		label_mejoras.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0))
+		label_mejoras.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		canvas.add_child(label_mejoras)
+	if mejoras_disponibles > 0:
+		label_mejoras.text = "Mejoras [M]: " + str(mejoras_disponibles)
+	else:
+		label_mejoras.text = ""

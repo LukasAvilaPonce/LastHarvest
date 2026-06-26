@@ -12,7 +12,8 @@ func _ready():
 		if child.has_method("actualizar"):
 			child.actualizar(hp, 20, "Runner")
 			break
-	_colorear(Color(1.0, 0.4, 0.7))
+	color_base = Color(1.0, 0.4, 0.7)
+	_colorear(color_base)
 	print(">>> RUNNER CARGADO <<<")
 
 func _aplicar_separacion():

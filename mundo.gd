@@ -17,16 +17,16 @@ var intervalo_semilla = 24.0
 
 # Zonas donde aparecen las semillas (cerca de la base)
 var zonas_spawn_semillas = [
-	Vector3(70, 1.5, 5),
-	Vector3(70, 1.5, -5),
-	Vector3(75, 1.5, 10),
-	Vector3(75, 1.5, -10),
-	Vector3(80, 1.5, 0),
-	Vector3(65, 1.5, 8),
-	Vector3(65, 1.5, -8),
-	Vector3(72, 1.5, 15),
-	Vector3(72, 1.5, -15),
-	Vector3(68, 1.5, 0),
+	Vector3(5, 1.5, 5),
+	Vector3(-5, 1.5, 5),
+	Vector3(10, 1.5, 0),
+	Vector3(-10, 1.5, 0),
+	Vector3(0, 1.5, 0),
+	Vector3(8, 1.5, -5),
+	Vector3(-8, 1.5, -5),
+	Vector3(5, 1.5, 10),
+	Vector3(-5, 1.5, 10),
+	Vector3(0, 1.5, -8),
 ]
 
 # ─── OLEADAS ──────────────────────────────────────────────────────
@@ -46,12 +46,12 @@ var zombies_por_oleada = 5
 var zombies_spawneados = 0
 var boss_spawneado := false
 var timer_spawn_zombie = 1.0
-var intervalo_spawn_zombie = 30.0
+var intervalo_spawn_zombie = 10.0
 var modo_caos = false
 
 # Spawn en el lado opuesto a la Planta Madre (X negativo, frente amplio)
-var zona_spawn_min := Vector3(-85.0, 2.0, -35.0)
-var zona_spawn_max := Vector3(-70.0, 2.0,  35.0)
+var zona_spawn_min := Vector3(-45.0, 1.0, -20.0)
+var zona_spawn_max := Vector3(-40.0, 1.0,  20.0)
 var separacion_spawn_zombie = 3.5
 var intentos_spawn_zombie = 20
 
@@ -62,18 +62,38 @@ var intentos_spawn_zombie = 20
 @onready var luz: DirectionalLight3D = get_node_or_null("DirectionalLight3D")
 
 # ─── DÍA / NOCHE ─────────────────────────────────────────────────
-var luz_objetivo := 1.0
-var luz_actual := 1.0
-const LUZ_DIA := 1.0
-const LUZ_NOCHE := 0.15
-const LUZ_BOSS := 0.05
+var luz_objetivo := 3.0
+var luz_actual := 3.0
+const LUZ_DIA := 3.0
+const LUZ_NOCHE := 0.8
+const LUZ_BOSS := 0.4
 
 # ─── INIT ─────────────────────────────────────────────────────────
 func _ready():
+	if label_timer != null:
+		label_timer.add_theme_font_size_override("font_size", 24)
+		label_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label_timer.anchor_left = 0.5
+		label_timer.anchor_right = 0.5
+		label_timer.offset_left = -50
+		label_timer.offset_right = 50
+		label_timer.offset_top = 8
+		label_timer.offset_bottom = 35
+	if label_fase != null:
+		label_fase.add_theme_font_size_override("font_size", 18)
+		label_fase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label_fase.anchor_left = 0.5
+		label_fase.anchor_right = 0.5
+		label_fase.offset_left = -200
+		label_fase.offset_right = 200
+		label_fase.offset_top = 38
+		label_fase.offset_bottom = 60
 	mostrar_espera_inicio()
 	if luz != null:
 		luz.light_energy = LUZ_DIA
-	_aplicar_textura_suelo()
+		luz.light_color = Color(1, 1, 1)
+		luz.rotation_degrees = Vector3(-45, -30, 0)
+	_crear_ambiente()
 
 # ─── LOOP PRINCIPAL ───────────────────────────────────────────────
 func _input(evento):
@@ -140,11 +160,12 @@ func _process(delta):
 			timer_limpieza += delta
 			_actualizar_timer_limpieza()
 			var zombies_vivos = _contar_zombies_vivos()
+			if label_fase != null:
+				label_fase.text = "Elimina los zombies restantes: " + str(zombies_vivos)
+				label_fase.modulate.a = 1.0
 			if zombies_vivos == 0:
 				print("--- Todos los zombies eliminados ---")
 				iniciar_fase_loot()
-			else:
-				actualizar_label_fase("Elimina los zombies restantes: " + str(zombies_vivos))
 
 		Estado.BOSS_FIGHT:
 			if label_timer != null:
@@ -190,6 +211,9 @@ func mostrar_espera_inicio():
 	actualizar_label_fase("Mantén '" + accion_iniciar_oleadas + "' por " + str(tiempo_mantener_accion) + "s para iniciar")
 	if label_timer != null:
 		label_timer.text = "PAUSA"
+	var gm = get_node_or_null("/root/GestorMusica")
+	if gm != null:
+		gm.reproducir_fase("espera")
 
 # ─── FASES ────────────────────────────────────────────────────────
 func iniciar_fase_loot():
@@ -214,8 +238,12 @@ func iniciar_fase_loot():
 	luz_objetivo = LUZ_DIA
 	actualizar_label_fase("FASE LOOT — Busca recursos")
 	print("--- FASE LOOT iniciada ---")
+	var gm = get_node_or_null("/root/GestorMusica")
+	if gm != null:
+		gm.reproducir_fase("loot")
 
 func iniciar_fase_oleada():
+	_limpiar_pickups()
 	estado_actual = Estado.OLEADA
 	timer_fase = duracion_oleada
 	numero_oleada += 1
@@ -223,11 +251,17 @@ func iniciar_fase_oleada():
 	modo_caos = false
 	luz_objetivo = LUZ_NOCHE
 	zombies_por_oleada = zombies_base + (numero_oleada * zombies_extra_por_oleada)
-	for i in range(20):
+	for i in range(15):
 		spawnear_zombie()
 	timer_spawn_zombie = intervalo_spawn_zombie
-	actualizar_label_fase("OLEADA " + str(numero_oleada) + " — Sobrevive (" + str(zombies_por_oleada) + " zombies)")
+	actualizar_label_fase("OLEADA " + str(numero_oleada))
 	print("--- OLEADA ", numero_oleada, " — ", zombies_por_oleada, " zombies ---")
+	var gm = get_node_or_null("/root/GestorMusica")
+	if gm != null:
+		if numero_oleada >= 6:
+			gm.reproducir_fase("boss", numero_oleada)
+		else:
+			gm.reproducir_fase("oleada", numero_oleada)
 
 func activar_modo_caos():
 	modo_caos = true
@@ -235,11 +269,12 @@ func activar_modo_caos():
 	timer_spawn_zombie = 0.0
 	actualizar_label_fase("MODO CAOS")
 	print("--- MODO CAOS ACTIVADO ---")
+	# No cambiar música — sigue la misma canción de la oleada
 
 func _iniciar_limpieza():
 	estado_actual = Estado.LIMPIEZA
 	timer_limpieza = 0.0
-	actualizar_label_fase("Elimina los zombies restantes...")
+	actualizar_label_fase("LIMPIEZA")
 	print("--- LIMPIEZA: esperando que mueran todos los zombies ---")
 
 func _contar_zombies_vivos() -> int:
@@ -257,16 +292,21 @@ func _actualizar_timer_limpieza():
 	segundos = segundos % 60
 	label_timer.text = "+" + "%02d:%02d" % [minutos, segundos]
 
+func _limpiar_pickups():
+	var eliminados = 0
+	for child in get_tree().current_scene.get_children():
+		if child.has_method("_process") and child.get("recogida") != null:
+			child.queue_free()
+			eliminados += 1
+		elif child.has_method("_process") and child.get("recogido") != null:
+			child.queue_free()
+			eliminados += 1
+	if eliminados > 0:
+		print("Pickups limpiados: ", eliminados)
+
 # ─── SPAWN SEMILLAS ───────────────────────────────────────────────
 func spawnear_semilla():
-	if semillas_en_mapa >= max_semillas_en_mapa:
-		return
-	var pos = zonas_spawn_semillas[randi() % zonas_spawn_semillas.size()]
-	var nueva_semilla = semilla_escena.instantiate()
-	nueva_semilla.position = pos
-	add_child(nueva_semilla)
-	nueva_semilla.semilla_recogida.connect(_on_semilla_recogida)
-	semillas_en_mapa += 1
+	pass
 
 # ─── SPAWN ZOMBIES ────────────────────────────────────────────────
 func spawnear_zombie():
@@ -431,29 +471,47 @@ func actualizar_hud_timer():
 	label_timer.text = "%02d:%02d" % [minutos, segundos]
 
 func actualizar_label_fase(texto: String):
-	if label_fase != null:
-		label_fase.text = texto
+	if label_fase == null:
+		return
+	label_fase.text = texto
+	label_fase.modulate.a = 1.0
+	var tween = label_fase.create_tween()
+	tween.tween_interval(3.0)
+	tween.tween_property(label_fase, "modulate:a", 0.0, 1.5)
+
+var ambiente: WorldEnvironment
+var env: Environment
+
+func _crear_ambiente():
+	env = Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.4, 0.5, 0.7)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.6, 0.6, 0.7)
+	env.ambient_light_energy = 0.5
+	ambiente = WorldEnvironment.new()
+	ambiente.environment = env
+	add_child(ambiente)
 
 # ─── DÍA / NOCHE ─────────────────────────────────────────────────
+const COLOR_CIELO_DIA = Color(0.4, 0.5, 0.7)
+const COLOR_CIELO_NOCHE = Color(0.05, 0.05, 0.12)
+const COLOR_CIELO_BOSS = Color(0.1, 0.02, 0.02)
+
 func _actualizar_luz(delta):
 	if luz == null:
 		return
 	if abs(luz_actual - luz_objetivo) > 0.01:
 		luz_actual = lerp(luz_actual, luz_objetivo, 1.5 * delta)
 		luz.light_energy = luz_actual
-		luz.light_color = Color(1, 1, 1).lerp(Color(0.3, 0.3, 0.6), 1.0 - luz_actual / LUZ_DIA)
+		luz.light_color = Color(1, 1, 1).lerp(Color(0.3, 0.3, 0.6), 1.0 - clampf(luz_actual / LUZ_DIA, 0.0, 1.0))
+
+		if env != null:
+			var t = 1.0 - clampf(luz_actual / LUZ_DIA, 0.0, 1.0)
+			var color_cielo_dest = COLOR_CIELO_NOCHE
+			if luz_objetivo <= LUZ_BOSS:
+				color_cielo_dest = COLOR_CIELO_BOSS
+			env.background_color = COLOR_CIELO_DIA.lerp(color_cielo_dest, t)
+			env.ambient_light_energy = lerp(0.5, 0.1, t)
 
 # ─── TEXTURA SUELO ────────────────────────────────────────────────
-func _aplicar_textura_suelo():
-	var suelo = get_node_or_null("NavigationRegion3D/CSGBox3D")
-	if suelo == null:
-		return
-	var textura = load("res://assets/mundo/suelo/mapa.png")
-	if textura == null:
-		return
-	var mat = StandardMaterial3D.new()
-	mat.albedo_texture = textura
-	mat.uv1_scale = Vector3(4, 2, 1)
-	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	suelo.material = mat
-	print("Textura de suelo aplicada")

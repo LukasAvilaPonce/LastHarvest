@@ -21,7 +21,8 @@ func _ready():
 			child.position = Vector3(0, 3.5, 0)
 			child.actualizar(hp, hp_maximo_crystal, "Crystal")
 			break
-	_colorear(Color(0.5, 0.2, 1.0))
+	color_base = Color(0.5, 0.2, 1.0)
+	_colorear(color_base)
 	print(">>> CRYSTAL MUTATE CARGADO <<<")
 
 func _physics_process(delta):

@@ -13,7 +13,8 @@ func _ready():
 			child.position = Vector3(0, 4.0, 0)
 			child.actualizar(hp, 400, "Brute")
 			break
-	_colorear(Color(0.2, 0.8, 0.2))
+	color_base = Color(0.2, 0.8, 0.2)
+	_colorear(color_base)
 	print(">>> BRUTE CARGADO <<<")
 
 func _aplicar_separacion():
