@@ -44,6 +44,14 @@ var offset_agachado_actual := 0.0
 var tiempo_ultimo_espacio_modo_dios := -10.0
 var plantas_desbloqueadas := [0, 1]
 
+# ─── ARMA ─────────────────────────────────────────────────────────
+var tiene_arma := false
+var balas := 0
+var dano_bala := 5
+var puede_disparar := true
+var cadencia := 0.15
+var label_balas: Label = null
+
 # ─── SISTEMA DE OLEADAS ───────────────────────────────────────────
 var semillas_por_oleada := 5
 var semillas_recogidas_oleada := 0
@@ -145,6 +153,7 @@ func _buscar_raycast() -> RayCast3D:
 # ─── INIT ─────────────────────────────────────────────────────────
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	global_position = Vector3(75, 2, 0)
 	if camara != null:
 		posicion_original_camara = camara.position
 	else:
@@ -212,7 +221,10 @@ func _input(evento):
 		_intentar_plantar()
 
 	if evento is InputEventMouseButton and evento.pressed:
-		if evento.button_index == MOUSE_BUTTON_WHEEL_UP:
+		if evento.button_index == MOUSE_BUTTON_LEFT:
+			if tiene_arma and puede_disparar and balas > 0:
+				_disparar()
+		elif evento.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_cambiar_tipo_planta(-1)
 		elif evento.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_cambiar_tipo_planta(1)
@@ -822,3 +834,110 @@ func _restaurar_desbloqueo_real():
 	inventario["agua"] = 1000
 	inventario["abono"] = 1000
 	_actualizar_hotbar()
+
+# ─── SISTEMA DE ARMA ─────────────────────────────────────────────
+func recoger_arma():
+	tiene_arma = true
+	balas = 30
+	_crear_label_balas()
+	_actualizar_label_balas()
+	print("ARMA RECOGIDA — 30 balas")
+	var canvas = escena_actual.get_node_or_null("CanvasLayer")
+	if canvas:
+		var notif = Label.new()
+		notif.text = "Arma recogida!"
+		notif.add_theme_font_size_override("font_size", 28)
+		notif.add_theme_color_override("font_color", Color(1.0, 0.8, 0.0))
+		notif.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		notif.anchor_left = 0.5
+		notif.anchor_right = 0.5
+		notif.anchor_top = 0.35
+		notif.offset_left = -150
+		notif.offset_right = 150
+		notif.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		canvas.add_child(notif)
+		var tw = notif.create_tween()
+		tw.tween_property(notif, "offset_top", -50.0, 1.5)
+		tw.parallel().tween_property(notif, "modulate:a", 0.0, 1.5)
+		tw.tween_callback(notif.queue_free)
+
+func recoger_cargador(cantidad: int):
+	balas += cantidad
+	_actualizar_label_balas()
+	print("CARGADOR RECOGIDO — +", cantidad, " balas (total: ", balas, ")")
+
+func _crear_label_balas():
+	var canvas = escena_actual.get_node_or_null("CanvasLayer")
+	if canvas == null or label_balas != null:
+		return
+	label_balas = Label.new()
+	label_balas.name = "LabelBalas"
+	label_balas.anchor_left = 1.0
+	label_balas.anchor_right = 1.0
+	label_balas.anchor_top = 1.0
+	label_balas.anchor_bottom = 1.0
+	label_balas.offset_left = -200
+	label_balas.offset_right = -10
+	label_balas.offset_top = -50
+	label_balas.offset_bottom = -10
+	label_balas.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	label_balas.add_theme_font_size_override("font_size", 24)
+	label_balas.add_theme_color_override("font_color", Color(1.0, 0.8, 0.0))
+	label_balas.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(label_balas)
+
+func _actualizar_label_balas():
+	if label_balas != null:
+		label_balas.text = "Balas: " + str(balas)
+
+func _disparar():
+	if not tiene_arma or balas <= 0 or not puede_disparar:
+		return
+	puede_disparar = false
+	balas -= 1
+	_actualizar_label_balas()
+
+	if camara == null:
+		puede_disparar = true
+		return
+
+	var origen = camara.global_transform.origin
+	var direccion = -camara.global_transform.basis.z
+	var destino = origen + direccion * 100.0
+	var space_state = get_world_3d().direct_space_state
+	var query = PhysicsRayQueryParameters3D.create(origen, destino)
+	query.exclude = [self]
+	var resultado = space_state.intersect_ray(query)
+
+	var punto_impacto = destino
+	if not resultado.is_empty():
+		punto_impacto = resultado["position"]
+		var hit = resultado["collider"]
+		if hit.is_in_group("zombies") and hit.has_method("recibir_dano"):
+			hit.recibir_dano(dano_bala)
+
+	_efecto_disparo(origen, punto_impacto)
+	_animar_crosshair_plantar()
+
+	await get_tree().create_timer(cadencia).timeout
+	if is_inside_tree():
+		puede_disparar = true
+
+func _efecto_disparo(desde: Vector3, hasta: Vector3):
+	var rayo = MeshInstance3D.new()
+	var mesh_rayo = BoxMesh.new()
+	var largo = desde.distance_to(hasta)
+	mesh_rayo.size = Vector3(0.02, 0.02, largo)
+	rayo.mesh = mesh_rayo
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 1.0, 0.3, 0.9)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	rayo.material_override = mat
+	var medio = (desde + hasta) / 2.0
+	rayo.global_position = medio
+	rayo.look_at(hasta)
+	get_tree().current_scene.add_child(rayo)
+	var tween = rayo.create_tween()
+	tween.tween_property(mat, "albedo_color:a", 0.0, 0.1)
+	tween.tween_callback(rayo.queue_free)

@@ -54,7 +54,7 @@ func _aplicar_efecto():
 		if is_instance_valid(z) and z is Node3D and not z.get("muriendo"):
 			if global_position.distance_to(z.global_position) <= radio_efecto:
 				en_rango.append(z)
-				z.velocidad = 0.1
+				z.velocidad = 1.5
 	for z in zombies_afectados:
 		if is_instance_valid(z) and not z in en_rango:
 			z.velocidad = 8.0

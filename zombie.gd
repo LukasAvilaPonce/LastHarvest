@@ -40,11 +40,30 @@ func _ready():
 	if anim != null:
 		anim.root_motion_track = NodePath("")
 		anim.play("zombie idle/mixamo_com")
+	_colorear(Color(0.9, 0.9, 0.9))
 	var barra = preload("res://barra_vida.gd").new()
 	barra.position = Vector3(0, 2.5, 0)
 	add_child(barra)
 	barra.crear(1.0, 0.1)
 	barra.actualizar(hp, 50, "Zombie")
+
+func _colorear(color: Color):
+	for child in get_children():
+		if child is MeshInstance3D:
+			var mat = StandardMaterial3D.new()
+			mat.albedo_color = color
+			child.material_override = mat
+			return
+	var modelo_node = get_node_or_null("copzombie_l_actisdato")
+	if modelo_node == null:
+		return
+	for child in modelo_node.get_children():
+		if child.has_method("get_children"):
+			for sub in child.get_children():
+				if sub is MeshInstance3D:
+					var mat = StandardMaterial3D.new()
+					mat.albedo_color = color
+					sub.material_override = mat
 
 
 # ─── LOOP PRINCIPAL ───────────────────────────────────────────────
@@ -100,6 +119,8 @@ func _physics_process(delta):
 	var distancia = dir_al_objetivo.length()
 
 	var rango_ataque := 2.0
+	if objetivo_actual != null and objetivo_actual.is_in_group("planta_madre"):
+		rango_ataque = 6.0
 
 	# ── Mover / Atacar / Idle ────────────────────────────────────
 	if distancia > distancia_perseguir:
@@ -164,10 +185,18 @@ func recibir_dano(cantidad: int):
 		var xp_node = get_node_or_null("/root/SistemaXP")
 		if xp_node:
 			xp_node.agregar_xp(25)
+		if randf() < 0.05:
+			_dropear_cargador()
 		if anim != null:
 			anim.play("zombie death/mixamo_com")
 		await get_tree().create_timer(1.5).timeout
 		queue_free()
+
+func _dropear_cargador():
+	var cargador = preload("res://pickup_cargador.gd").new()
+	cargador.global_position = global_position + Vector3(0, 1, 0)
+	get_tree().current_scene.add_child(cargador)
+	print("Zombie dropeó cargador!")
 
 # ─── SEPARACIÓN MANUAL ENTRE ZOMBIES ─────────────────────────────
 func _aplicar_separacion():
