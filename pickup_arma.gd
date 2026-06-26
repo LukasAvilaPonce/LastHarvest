@@ -7,7 +7,7 @@ var en_suelo := false
 var altura_suelo := 1.5
 
 func _ready():
-	var escena_arma = load("res://assets/arma/arma.glb")
+	var escena_arma = load("res://assets/plantas/pistola v2.glb")
 	if escena_arma != null:
 		var modelo = escena_arma.instantiate()
 		modelo.name = "ArmaModelo"

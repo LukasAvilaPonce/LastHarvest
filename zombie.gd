@@ -39,34 +39,52 @@ func _ready():
 	buscar_jugador()
 	if nav != null:
 		nav.avoidance_enabled = false
+	_cargar_modelo_zombie()
 	if anim != null:
 		anim.root_motion_track = NodePath("")
-		anim.play("zombie idle/mixamo_com")
 	color_base = Color(0.9, 0.9, 0.9)
-	_colorear(color_base)
 	var barra = preload("res://barra_vida.gd").new()
 	barra.position = Vector3(0, 2.5, 0)
 	add_child(barra)
 	barra.crear(1.0, 0.1)
 	barra.actualizar(hp, 80, "Zombie")
 
+func _cargar_modelo_zombie():
+	# Ocultar cápsula vieja si existe
+	var mesh_viejo = get_node_or_null("MeshInstance3D")
+	if mesh_viejo != null:
+		mesh_viejo.visible = false
+	var modelo_viejo = get_node_or_null("copzombie_l_actisdato")
+	if modelo_viejo != null:
+		modelo_viejo.visible = false
+	# Buscar modelo nuevo (ya integrado en la escena)
+	modelo = get_node_or_null("ZombieModel")
+	if modelo != null:
+		var anim_nuevo = modelo.find_child("AnimationPlayer", true, false)
+		if anim_nuevo is AnimationPlayer:
+			anim = anim_nuevo
+			anim.root_motion_track = NodePath("")
+
 func _colorear(color: Color):
-	for child in get_children():
-		if child is MeshInstance3D:
-			var mat = StandardMaterial3D.new()
-			mat.albedo_color = color
-			child.material_override = mat
-			return
-	var modelo_node = get_node_or_null("copzombie_l_actisdato")
-	if modelo_node == null:
+	var target = get_node_or_null("ZombieModel")
+	if target == null:
+		target = get_node_or_null("copzombie_l_actisdato")
+	if target == null:
+		for child in get_children():
+			if child is MeshInstance3D:
+				var mat = StandardMaterial3D.new()
+				mat.albedo_color = color
+				child.material_override = mat
 		return
-	for child in modelo_node.get_children():
-		if child.has_method("get_children"):
-			for sub in child.get_children():
-				if sub is MeshInstance3D:
-					var mat = StandardMaterial3D.new()
-					mat.albedo_color = color
-					sub.material_override = mat
+	_colorear_recursivo(target, color)
+
+func _colorear_recursivo(nodo: Node, color: Color):
+	if nodo is MeshInstance3D:
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = color
+		nodo.material_override = mat
+	for hijo in nodo.get_children():
+		_colorear_recursivo(hijo, color)
 
 
 # ─── LOOP PRINCIPAL ───────────────────────────────────────────────
@@ -164,8 +182,7 @@ func atacar():
 	puede_atacar = false
 	if objetivo_actual.has_method("recibir_dano"):
 		objetivo_actual.recibir_dano(dano)
-		print("Zombie atacó a: ", objetivo_actual.name)
-	get_tree().create_timer(tiempo_entre_ataques).timeout.connect(
+		get_tree().create_timer(tiempo_entre_ataques).timeout.connect(
 		func():
 			if is_inside_tree():
 				puede_atacar = true
@@ -185,7 +202,6 @@ func recibir_dano(cantidad: int):
 	if barra_node != null:
 		barra_node.actualizar(hp, 80, "Zombie")
 	_efecto_recibir_dano()
-	print("Zombie recibió daño, HP: ", hp)
 	if hp <= 0:
 		muriendo = true
 		velocity = Vector3.ZERO
@@ -194,14 +210,13 @@ func recibir_dano(cantidad: int):
 			xp_node.agregar_xp(25)
 		if randf() < 0.05:
 			_dropear_cargador()
-		if anim != null:
-			anim.play("zombie death/mixamo_com")
-		await get_tree().create_timer(1.5).timeout
 		queue_free()
 
 func _efecto_recibir_dano():
 	_colorear(Color(1.0, 0.2, 0.2))
-	var modelo_node = get_node_or_null("copzombie_l_actisdato")
+	var modelo_node = get_node_or_null("ZombieModel")
+	if modelo_node == null:
+		modelo_node = get_node_or_null("copzombie_l_actisdato")
 	if modelo_node != null:
 		var pos_orig = modelo_node.position
 		modelo_node.position = pos_orig + Vector3(randf_range(-0.2, 0.2), 0, randf_range(-0.2, 0.2))

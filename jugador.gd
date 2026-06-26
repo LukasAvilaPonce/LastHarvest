@@ -420,9 +420,9 @@ func _posicionar_jugador():
 	await get_tree().process_frame
 	var madre = get_tree().get_first_node_in_group("planta_madre")
 	if madre != null:
-		global_position = Vector3(madre.global_position.x - 10, 1.0, madre.global_position.z)
+		global_position = Vector3(madre.global_position.x + 8, 1.0, madre.global_position.z)
 	else:
-		global_position = Vector3(25, 1.0, 0)
+		global_position = Vector3(8, 1.0, 0)
 	global_transform.basis = Basis()
 	var cam_h = get_node_or_null("Camholder")
 	if cam_h != null:
@@ -1048,8 +1048,8 @@ func _crear_viewmodel():
 	if cam.get_node_or_null("Viewmodel") != null:
 		return
 	var rutas = [
+		"res://assets/plantas/pistola v2.glb",
 		"res://assets/arma/arma.glb",
-		"res://assets/arma.glb",
 	]
 	var escena_arma = null
 	for ruta in rutas:

@@ -1,7 +1,7 @@
 extends Node3D
 
 @export var semilla_escena = preload("res://semilla.tscn")
-@export var zombie_escena = preload("res://zombie.tscn")
+@export var zombie_escena = preload("res://zombie_v2.tscn")
 
 # ─── INICIO MANUAL ────────────────────────────────────────────────
 @export var accion_iniciar_oleadas := "accionar"
@@ -17,16 +17,16 @@ var intervalo_semilla = 24.0
 
 # Zonas donde aparecen las semillas (cerca de la base)
 var zonas_spawn_semillas = [
-	Vector3(5, 1.5, 5),
-	Vector3(-5, 1.5, 5),
-	Vector3(10, 1.5, 0),
-	Vector3(-10, 1.5, 0),
-	Vector3(0, 1.5, 0),
-	Vector3(8, 1.5, -5),
-	Vector3(-8, 1.5, -5),
-	Vector3(5, 1.5, 10),
-	Vector3(-5, 1.5, 10),
-	Vector3(0, 1.5, -8),
+	Vector3(15, 1.5, 0),
+	Vector3(-15, 1.5, 0),
+	Vector3(0, 1.5, 12),
+	Vector3(0, 1.5, -12),
+	Vector3(10, 1.5, 10),
+	Vector3(-10, 1.5, 10),
+	Vector3(10, 1.5, -10),
+	Vector3(-10, 1.5, -10),
+	Vector3(20, 1.5, 5),
+	Vector3(-20, 1.5, -5),
 ]
 
 # ─── OLEADAS ──────────────────────────────────────────────────────
@@ -49,9 +49,14 @@ var timer_spawn_zombie = 1.0
 var intervalo_spawn_zombie = 10.0
 var modo_caos = false
 
-# Spawn en el lado opuesto a la Planta Madre (X negativo, frente amplio)
-var zona_spawn_min := Vector3(-45.0, 1.0, -20.0)
-var zona_spawn_max := Vector3(-40.0, 1.0,  20.0)
+# 4 puntos de spawn en las esquinas del mapa
+var puntos_spawn := [
+	Vector3(0, 2.0, -45),     # Centro borde sur (-Z)
+	Vector3(0, 2.0, 45),      # Centro borde norte (+Z)
+	Vector3(-45, 2.0, 0),     # Centro borde oeste (-X)
+	Vector3(45, 2.0, 0),      # Centro borde este (+X)
+]
+var radio_spawn := 5.0
 var separacion_spawn_zombie = 3.5
 var intentos_spawn_zombie = 20
 
@@ -311,7 +316,7 @@ func spawnear_semilla():
 # ─── SPAWN ZOMBIES ────────────────────────────────────────────────
 func spawnear_zombie():
 	var pos = obtener_posicion_spawn_zombie_segura()
-	var tipo_escena: String = "res://zombie.tscn"
+	var tipo_escena: String = "res://zombie_v2.tscn"
 
 	match numero_oleada:
 		1, 2:
@@ -320,7 +325,7 @@ func spawnear_zombie():
 			elif zombies_spawneados == 2:
 				tipo_escena = "res://zombie_brute.tscn"
 			else:
-				tipo_escena = "res://zombie.tscn"
+				tipo_escena = "res://zombie_v2.tscn"
 		3, 4:
 			var idx = zombies_spawneados % 8
 			match idx:
@@ -331,7 +336,7 @@ func spawnear_zombie():
 				6, 7:
 					tipo_escena = "res://zombie_crystal.tscn"
 				_:
-					tipo_escena = "res://zombie.tscn"
+					tipo_escena = "res://zombie_v2.tscn"
 		5:
 			var rand = randf()
 			if rand < 0.3:
@@ -341,13 +346,13 @@ func spawnear_zombie():
 			elif rand < 0.7:
 				tipo_escena = "res://zombie_crystal.tscn"
 			else:
-				tipo_escena = "res://zombie.tscn"
+				tipo_escena = "res://zombie_v2.tscn"
 		6:
 			if not boss_spawneado:
 				boss_spawneado = true
 				_spawnear_boss()
 				return
-			tipo_escena = "res://zombie_runner.tscn" if randf() < 0.5 else "res://zombie.tscn"
+			tipo_escena = "res://zombie_runner.tscn" if randf() < 0.5 else "res://zombie_v2.tscn"
 		_:
 			var rand = randf()
 			if rand < 0.1:
@@ -357,7 +362,7 @@ func spawnear_zombie():
 			elif rand < 0.6:
 				tipo_escena = "res://zombie_runner.tscn"
 			else:
-				tipo_escena = "res://zombie.tscn"
+				tipo_escena = "res://zombie_v2.tscn"
 
 	var escena = load(tipo_escena) if ResourceLoader.exists(tipo_escena) else zombie_escena
 	if escena == null:
@@ -368,7 +373,6 @@ func spawnear_zombie():
 	if nuevo_zombie is CharacterBody3D:
 		nuevo_zombie.velocity = Vector3.ZERO
 	zombies_spawneados += 1
-	print("Zombie spawneado [", tipo_escena.get_file(), "]: ", zombies_spawneados)
 
 func _spawnear_boss():
 	actualizar_label_fase("ALGO SE ACERCA...")
@@ -388,8 +392,8 @@ func _secuencia_boss():
 		return
 
 	var pos_boss = Vector3(
-		(zona_spawn_min.x + zona_spawn_max.x) / 2.0,
-		zona_spawn_min.y,
+		puntos_spawn[0].x,
+		puntos_spawn[0].y,
 		0
 	)
 
@@ -398,11 +402,11 @@ func _secuencia_boss():
 		"res://zombie_runner.tscn",
 		"res://zombie_brute.tscn",
 		"res://zombie_runner.tscn",
-		"res://zombie.tscn",
+		"res://zombie_v2.tscn",
 		"res://zombie_runner.tscn",
 		"res://zombie_crystal.tscn",
 		"res://zombie_runner.tscn",
-		"res://zombie.tscn",
+		"res://zombie_v2.tscn",
 	]
 	for i in range(tipos_escolta.size()):
 		var angulo = (float(i) / tipos_escolta.size()) * TAU
@@ -434,20 +438,12 @@ func _secuencia_boss():
 	print("!!!! FINAL BOSS SPAWNEADO CON ESCOLTA !!!!")
 
 func obtener_posicion_spawn_zombie_segura() -> Vector3:
+	var punto = puntos_spawn[randi() % puntos_spawn.size()]
 	for _intento in range(intentos_spawn_zombie):
-		var pos = Vector3(
-			randf_range(zona_spawn_min.x, zona_spawn_max.x),
-			zona_spawn_min.y,
-			randf_range(zona_spawn_min.z, zona_spawn_max.z)
-		)
+		var pos = punto + Vector3(randf_range(-radio_spawn, radio_spawn), 0, randf_range(-radio_spawn, radio_spawn))
 		if not hay_zombie_cerca(pos):
 			return pos
-	# Fallback
-	return Vector3(
-		randf_range(zona_spawn_min.x, zona_spawn_max.x),
-		zona_spawn_min.y,
-		randf_range(zona_spawn_min.z, zona_spawn_max.z)
-	)
+	return punto + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))
 
 func hay_zombie_cerca(pos: Vector3) -> bool:
 	for zombie in get_tree().get_nodes_in_group("zombies"):

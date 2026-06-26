@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://wcdpg1v26boh"]
 
 [ext_resource type="Script" uid="uid://dwdroigwms754" path="res://zombie.gd" id="1_uiaus"]
+[ext_resource type="AnimationLibrary" uid="uid://cb1hxr0feepcb" path="res://assets/zombie modelo 3D/zombie run.fbx" id="2_roy8y"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_roy8y"]
 
@@ -27,3 +28,6 @@ neighbor_distance = 10.0
 time_horizon_agents = 0.3
 max_speed = 3.0
 keep_y_velocity = false
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=661182761]
+"libraries/zombie run" = ExtResource("2_roy8y")

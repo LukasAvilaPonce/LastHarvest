@@ -1,0 +1,44 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://bewilbxj1hdit"
+path.s3tc="res://.godot/imported/survivor+character+3d+model_survivor_character_3d_model_basecolor.jpg-2a2ee9c9114a3240ae12a32dca079368.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
+generator_parameters={
+"md5": "4c7903a800ed4d7358cb1935562a031c"
+}
+
+[deps]
+
+source_file="res://assets/zombie modelo 3D/survivor+character+3d+model_survivor_character_3d_model_basecolor.jpg"
+dest_files=["res://.godot/imported/survivor+character+3d+model_survivor_character_3d_model_basecolor.jpg-2a2ee9c9114a3240ae12a32dca079368.s3tc.ctex"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/uastc_level=0
+compress/rdo_quality_loss=0.0
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/channel_remap/red=0
+process/channel_remap/green=1
+process/channel_remap/blue=2
+process/channel_remap/alpha=3
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=0

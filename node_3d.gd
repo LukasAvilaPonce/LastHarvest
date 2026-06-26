@@ -1,8 +1,8 @@
 extends StaticBody3D
 
 # ─── STATS ────────────────────────────────────────────────────────
-@export var hp_maximo := 500
-var hp := 500
+@export var hp_maximo := 10000
+var hp := 10000
 var muriendo := false
 var timer_mejora_drop := 15.0
 
@@ -23,7 +23,7 @@ func _ready():
 	material.albedo_color = COLOR_NORMAL
 	mesh.material_override = material
 	barra = preload("res://barra_vida.gd").new()
-	barra.position = Vector3(0, 4, 0)
+	barra.position = Vector3(-2, 10, 0)
 	add_child(barra)
 	barra.crear(3.0, 0.25)
 	barra.actualizar(hp, hp_maximo, "Planta Madre")
@@ -42,7 +42,7 @@ func _fix_posicion():
 		col_node.position = Vector3(0, 0, 0)
 	# Mover Planta Madre dentro del mapa si está fuera
 	if abs(global_position.x) > 45 or abs(global_position.z) > 22:
-		global_position = Vector3(40, 1.0, 0)
+		global_position = Vector3(0, 0.5, 0)
 	print("Planta Madre en: ", global_position)
 
 func _process(delta):
@@ -54,8 +54,8 @@ func _process(delta):
 	var estado = mundo.get("estado_actual")
 	if estado == null:
 		return
-	# Solo dropear mejoras durante oleadas (no loot ni espera)
-	if estado != 2 and estado != 3 and estado != 5:
+	# Solo dropear mejoras durante oleadas (OLEADA=2, CAOS=3, BOSS_FIGHT=5)
+	if not (estado == 2 or estado == 3 or estado == 5):
 		return
 	# Limitar mejoras en el mapa (max 3)
 	var mejoras_en_mapa = 0
@@ -75,7 +75,7 @@ func _dropear_mejora():
 		return
 	var mejora = preload("res://pickup_mejora.gd").new()
 	get_tree().current_scene.add_child(mejora)
-	var pos_mej = Vector3(global_position.x - 5 + randf_range(-2, 2), global_position.y + 1.5, global_position.z + randf_range(-3, 3))
+	var pos_mej = Vector3(global_position.x + randf_range(-5, 5), global_position.y + 1.5, global_position.z + randf_range(-5, 5))
 	mejora.global_position = pos_mej
 	print("Mejora dropeada en: ", snapped(pos_mej, Vector3(0.1,0.1,0.1)))
 
@@ -150,7 +150,7 @@ func dropear_loot(numero_oleada: int):
 			pickup.cantidad = 1
 			get_tree().current_scene.add_child(pickup)
 			var angulo = (float(item_idx) / max(total_items, 1)) * TAU
-			var drop_pos = Vector3(pos_base.x - 3 + cos(angulo) * 3, pos_base.y + 1.5, pos_base.z + sin(angulo) * 3)
+			var drop_pos = Vector3(pos_base.x + cos(angulo) * 5, pos_base.y + 1.5, pos_base.z + sin(angulo) * 5)
 			pickup.global_position = drop_pos
 			print("  Drop ", d["key"], " en: ", snapped(drop_pos, Vector3(0.1,0.1,0.1)))
 			item_idx += 1
@@ -159,7 +159,7 @@ func dropear_loot(numero_oleada: int):
 	agua_p.tipo = "agua"
 	agua_p.cantidad = 10
 	get_tree().current_scene.add_child(agua_p)
-	var pos_agua = Vector3(pos_base.x - 5, pos_base.y + 1.5, pos_base.z - 2)
+	var pos_agua = Vector3(pos_base.x - 4, pos_base.y + 1.5, pos_base.z + 4)
 	agua_p.global_position = pos_agua
 	print("  Drop agua x10 en: ", snapped(pos_agua, Vector3(0.1,0.1,0.1)))
 
@@ -167,7 +167,7 @@ func dropear_loot(numero_oleada: int):
 	abono_p.tipo = "abono"
 	abono_p.cantidad = 10
 	get_tree().current_scene.add_child(abono_p)
-	var pos_abono = Vector3(pos_base.x - 5, pos_base.y + 1.5, pos_base.z + 2)
+	var pos_abono = Vector3(pos_base.x + 4, pos_base.y + 1.5, pos_base.z - 4)
 	abono_p.global_position = pos_abono
 	print("  Drop abono x10 en: ", snapped(pos_abono, Vector3(0.1,0.1,0.1)))
 
@@ -226,13 +226,13 @@ func _efecto_loot_drop():
 func _dropear_arma():
 	var arma = preload("res://pickup_arma.gd").new()
 	get_tree().current_scene.add_child(arma)
-	var pos_arma = Vector3(global_position.x - 7, global_position.y + 1.5, global_position.z)
+	var pos_arma = Vector3(global_position.x + 6, global_position.y + 1.5, global_position.z)
 	arma.global_position = pos_arma
 	print("Arma dropeada en: ", snapped(pos_arma, Vector3(0.1,0.1,0.1)))
 	_efecto_drop_arma()
 
 func _efecto_drop_arma():
-	var pos_arma = Vector3(global_position.x - 7, global_position.y + 1, global_position.z)
+	var pos_arma = Vector3(global_position.x + 6, global_position.y + 1, global_position.z)
 
 	material.albedo_color = Color(0.0, 1.0, 0.3)
 	var tw_mat = create_tween()
