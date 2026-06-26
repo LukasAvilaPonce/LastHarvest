@@ -30,7 +30,7 @@ var zonas_spawn_semillas = [
 ]
 
 # ─── OLEADAS ──────────────────────────────────────────────────────
-enum Estado { ESPERA_INICIO, LOOT, OLEADA, CAOS, LIMPIEZA }
+enum Estado { ESPERA_INICIO, LOOT, OLEADA, CAOS, LIMPIEZA, BOSS_FIGHT }
 var estado_actual = Estado.ESPERA_INICIO
 var timer_fase = 0.0
 var timer_limpieza = 0.0
@@ -50,8 +50,8 @@ var intervalo_spawn_zombie = 30.0
 var modo_caos = false
 
 # Spawn en el lado opuesto a la Planta Madre (X negativo, frente amplio)
-var zona_spawn_min := Vector3(-100.0, 2.0, -40.0)
-var zona_spawn_max := Vector3(-80.0, 2.0,  40.0)
+var zona_spawn_min := Vector3(-85.0, 2.0, -35.0)
+var zona_spawn_max := Vector3(-70.0, 2.0,  35.0)
 var separacion_spawn_zombie = 3.5
 var intentos_spawn_zombie = 20
 
@@ -59,10 +59,21 @@ var intentos_spawn_zombie = 20
 @onready var jugador = get_node_or_null("jugador")
 @onready var label_timer: Label = get_node_or_null("CanvasLayer/LabelTimer")
 @onready var label_fase: Label  = get_node_or_null("CanvasLayer/LabelFase")
+@onready var luz: DirectionalLight3D = get_node_or_null("DirectionalLight3D")
+
+# ─── DÍA / NOCHE ─────────────────────────────────────────────────
+var luz_objetivo := 1.0
+var luz_actual := 1.0
+const LUZ_DIA := 1.0
+const LUZ_NOCHE := 0.15
+const LUZ_BOSS := 0.05
 
 # ─── INIT ─────────────────────────────────────────────────────────
 func _ready():
 	mostrar_espera_inicio()
+	if luz != null:
+		luz.light_energy = LUZ_DIA
+	_aplicar_textura_suelo()
 
 # ─── LOOP PRINCIPAL ───────────────────────────────────────────────
 func _input(evento):
@@ -88,6 +99,8 @@ func _process(delta):
 	if not sistema_oleadas_activo:
 		procesar_inicio_manual(delta)
 		return
+
+	_actualizar_luz(delta)
 
 	match estado_actual:
 		Estado.LOOT:
@@ -132,6 +145,22 @@ func _process(delta):
 				iniciar_fase_loot()
 			else:
 				actualizar_label_fase("Elimina los zombies restantes: " + str(zombies_vivos))
+
+		Estado.BOSS_FIGHT:
+			if label_timer != null:
+				label_timer.text = ""
+			var boss_vivo = false
+			for z in get_tree().get_nodes_in_group("zombies"):
+				if is_instance_valid(z) and z is CharacterBody3D and not z.get("muriendo"):
+					if z.get("hp_maximo_boss") != null:
+						boss_vivo = true
+						break
+			if not boss_vivo:
+				print("--- BOSS DERROTADO — oleada terminada ---")
+				actualizar_label_fase("BOSS DERROTADO!")
+				await get_tree().create_timer(3.0).timeout
+				if is_inside_tree():
+					iniciar_fase_loot()
 
 # ─── INICIO MANUAL ────────────────────────────────────────────────
 func procesar_inicio_manual(delta):
@@ -182,6 +211,7 @@ func iniciar_fase_loot():
 		xp_node.agregar_xp(100 * numero_oleada)
 		xp_node.completar_oleada()
 		print("XP de oleada: +", 100 * numero_oleada)
+	luz_objetivo = LUZ_DIA
 	actualizar_label_fase("FASE LOOT — Busca recursos")
 	print("--- FASE LOOT iniciada ---")
 
@@ -191,6 +221,7 @@ func iniciar_fase_oleada():
 	numero_oleada += 1
 	zombies_spawneados = 0
 	modo_caos = false
+	luz_objetivo = LUZ_NOCHE
 	zombies_por_oleada = zombies_base + (numero_oleada * zombies_extra_por_oleada)
 	for i in range(20):
 		spawnear_zombie()
@@ -355,7 +386,11 @@ func _secuencia_boss():
 	if boss is CharacterBody3D:
 		boss.velocity = Vector3.ZERO
 
+	estado_actual = Estado.BOSS_FIGHT
+	luz_objetivo = LUZ_BOSS
 	actualizar_label_fase("ZOMBIE GIGANTE HA APARECIDO")
+	if label_timer != null:
+		label_timer.text = ""
 	print("!!!! FINAL BOSS SPAWNEADO CON ESCOLTA !!!!")
 
 func obtener_posicion_spawn_zombie_segura() -> Vector3:
@@ -398,3 +433,27 @@ func actualizar_hud_timer():
 func actualizar_label_fase(texto: String):
 	if label_fase != null:
 		label_fase.text = texto
+
+# ─── DÍA / NOCHE ─────────────────────────────────────────────────
+func _actualizar_luz(delta):
+	if luz == null:
+		return
+	if abs(luz_actual - luz_objetivo) > 0.01:
+		luz_actual = lerp(luz_actual, luz_objetivo, 1.5 * delta)
+		luz.light_energy = luz_actual
+		luz.light_color = Color(1, 1, 1).lerp(Color(0.3, 0.3, 0.6), 1.0 - luz_actual / LUZ_DIA)
+
+# ─── TEXTURA SUELO ────────────────────────────────────────────────
+func _aplicar_textura_suelo():
+	var suelo = get_node_or_null("NavigationRegion3D/CSGBox3D")
+	if suelo == null:
+		return
+	var textura = load("res://assets/mundo/suelo/mapa.png")
+	if textura == null:
+		return
+	var mat = StandardMaterial3D.new()
+	mat.albedo_texture = textura
+	mat.uv1_scale = Vector3(4, 2, 1)
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	suelo.material = mat
+	print("Textura de suelo aplicada")

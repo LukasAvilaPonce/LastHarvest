@@ -16,7 +16,7 @@ func _physics_process(delta):
 	look_at(global_position + direccion, Vector3.UP)
 
 	trail_timer += delta
-	if trail_timer >= 0.05:
+	if trail_timer >= 0.15:
 		trail_timer = 0.0
 		_crear_trail()
 

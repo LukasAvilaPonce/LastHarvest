@@ -33,29 +33,37 @@ func _crear_barra_boss():
 	var canvas = get_tree().current_scene.get_node_or_null("CanvasLayer")
 	if canvas == null:
 		return
+	# Ocultar timer y fase
+	var timer_label = canvas.get_node_or_null("LabelTimer")
+	if timer_label:
+		timer_label.visible = false
+	var fase_label = canvas.get_node_or_null("LabelFase")
+	if fase_label:
+		fase_label.visible = false
+
 	var fondo = ColorRect.new()
 	fondo.name = "BossFondo"
-	fondo.anchor_left = 0.1
-	fondo.anchor_right = 0.9
-	fondo.anchor_top = 0.88
-	fondo.anchor_bottom = 0.95
-	fondo.color = Color(0.0, 0.0, 0.0, 0.7)
+	fondo.anchor_left = 0.15
+	fondo.anchor_right = 0.85
+	fondo.anchor_top = 0.02
+	fondo.anchor_bottom = 0.08
+	fondo.color = Color(0.0, 0.0, 0.0, 0.8)
 	canvas.add_child(fondo)
 
 	var barra_fondo = ColorRect.new()
-	barra_fondo.anchor_left = 0.0
-	barra_fondo.anchor_right = 1.0
-	barra_fondo.anchor_top = 0.5
-	barra_fondo.anchor_bottom = 1.0
+	barra_fondo.anchor_left = 0.01
+	barra_fondo.anchor_right = 0.99
+	barra_fondo.anchor_top = 0.45
+	barra_fondo.anchor_bottom = 0.95
 	barra_fondo.color = Color(0.3, 0.0, 0.0)
 	fondo.add_child(barra_fondo)
 
 	var barra = ColorRect.new()
 	barra.name = "BossBar"
-	barra.anchor_left = 0.0
-	barra.anchor_right = 1.0
-	barra.anchor_top = 0.5
-	barra.anchor_bottom = 1.0
+	barra.anchor_left = 0.01
+	barra.anchor_right = 0.99
+	barra.anchor_top = 0.45
+	barra.anchor_bottom = 0.95
 	barra.color = Color(0.9, 0.05, 0.05)
 	fondo.add_child(barra)
 	boss_bar_rect = barra
@@ -63,20 +71,20 @@ func _crear_barra_boss():
 	var label = Label.new()
 	label.name = "BossLabel"
 	label.text = "ZOMBIE GIGANTE — 10000 HP"
-	label.add_theme_font_size_override("font_size", 22)
+	label.add_theme_font_size_override("font_size", 18)
 	label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.anchor_left = 0.0
 	label.anchor_right = 1.0
 	label.anchor_top = 0.0
-	label.anchor_bottom = 0.5
+	label.anchor_bottom = 0.45
 	fondo.add_child(label)
 	boss_bar_label = label
 
 func _actualizar_barra_boss():
 	var porcentaje = clampf(float(hp) / float(hp_maximo_boss), 0.0, 1.0)
 	if boss_bar_rect != null:
-		boss_bar_rect.anchor_right = porcentaje
+		boss_bar_rect.anchor_right = 0.01 + (0.98 * porcentaje)
 	if boss_bar_label != null:
 		boss_bar_label.text = "ZOMBIE GIGANTE — " + str(hp) + " / " + str(hp_maximo_boss) + " HP"
 	if hp <= 5000 and fase_actual == 1:
@@ -121,6 +129,12 @@ func _morir_boss():
 		var boss_fondo = canvas.get_node_or_null("BossFondo")
 		if boss_fondo:
 			boss_fondo.queue_free()
+		var timer_label = canvas.get_node_or_null("LabelTimer")
+		if timer_label:
+			timer_label.visible = true
+		var fase_label = canvas.get_node_or_null("LabelFase")
+		if fase_label:
+			fase_label.visible = true
 	queue_free()
 
 func _physics_process(delta):

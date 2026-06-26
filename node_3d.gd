@@ -142,8 +142,8 @@ func _efecto_loot_drop():
 
 func _dropear_arma():
 	var arma = preload("res://pickup_arma.gd").new()
-	arma.global_position = global_position + Vector3(-5, 1, 0)
 	get_tree().current_scene.add_child(arma)
+	arma.global_position = global_position + Vector3(-5, 1, 0)
 	print("Planta Madre dropeó un arma!")
 
 # ─── MUERTE → GAME OVER ───────────────────────────────────────────

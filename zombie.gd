@@ -14,6 +14,7 @@ var objetivo_actual: Node3D = null
 var puede_atacar := true
 var hp := 50
 var muriendo := false
+var timer_buscar := 0.0
 
 # ─── NODOS ────────────────────────────────────────────────────────
 @onready var nav: NavigationAgent3D = get_node_or_null("NavigationAgent3D")
@@ -84,34 +85,37 @@ func _physics_process(delta):
 		move_and_slide()
 		return
 
-	# ── Elegir objetivo: el MÁS CERCANO ─────────────────────────
-	var mejor: Node3D = null
-	var mejor_dist := 99999.0
+	# ── Elegir objetivo: el MÁS CERCANO (cada 0.3s) ────────────
+	timer_buscar -= delta
+	if timer_buscar <= 0 or objetivo_actual == null or not is_instance_valid(objetivo_actual):
+		timer_buscar = 0.3
+		var mejor: Node3D = null
+		var mejor_dist := 99999.0
 
-	var madre: Node3D = null
-	var plantas_madre = get_tree().get_nodes_in_group("planta_madre")
-	if plantas_madre.size() > 0 and is_instance_valid(plantas_madre[0]):
-		madre = plantas_madre[0]
+		var madre: Node3D = null
+		var plantas_madre = get_tree().get_nodes_in_group("planta_madre")
+		if plantas_madre.size() > 0 and is_instance_valid(plantas_madre[0]):
+			madre = plantas_madre[0]
 
-	var candidatos: Array[Node3D] = []
-	if madre != null:
-		candidatos.append(madre)
-	if jugador != null and is_instance_valid(jugador):
-		candidatos.append(jugador)
-	for planta in get_tree().get_nodes_in_group("plantas"):
-		if is_instance_valid(planta) and planta.get("activa"):
-			candidatos.append(planta)
+		var candidatos: Array[Node3D] = []
+		if madre != null:
+			candidatos.append(madre)
+		if jugador != null and is_instance_valid(jugador):
+			candidatos.append(jugador)
+		for planta in get_tree().get_nodes_in_group("plantas"):
+			if is_instance_valid(planta) and planta.get("activa"):
+				candidatos.append(planta)
 
-	for c in candidatos:
-		var d = global_position.distance_to(c.global_position)
-		if d < mejor_dist:
-			mejor_dist = d
-			mejor = c
+		for c in candidatos:
+			var d = global_position.distance_to(c.global_position)
+			if d < mejor_dist:
+				mejor_dist = d
+				mejor = c
 
-	if mejor != null:
-		objetivo_actual = mejor
-	else:
-		objetivo_actual = jugador
+		if mejor != null:
+			objetivo_actual = mejor
+		else:
+			objetivo_actual = jugador
 
 	# ── Distancia horizontal ─────────────────────────────────────
 	var dir_al_objetivo = objetivo_actual.global_position - global_position
@@ -194,21 +198,25 @@ func recibir_dano(cantidad: int):
 
 func _dropear_cargador():
 	var cargador = preload("res://pickup_cargador.gd").new()
-	cargador.global_position = global_position + Vector3(0, 1, 0)
 	get_tree().current_scene.add_child(cargador)
+	cargador.global_position = global_position + Vector3(0, 1, 0)
 	print("Zombie dropeó cargador!")
 
 # ─── SEPARACIÓN MANUAL ENTRE ZOMBIES ─────────────────────────────
 func _aplicar_separacion():
 	var fuerza := Vector3.ZERO
+	var mi_pos = global_position
 	for z in get_tree().get_nodes_in_group("zombies"):
 		if z == self or not is_instance_valid(z):
 			continue
-		var diff = global_position - z.global_position
-		diff.y = 0
-		var dist = diff.length()
-		if dist < 1.2 and dist > 0.01:
-			fuerza += diff.normalized() * (1.2 - dist) * 3.0
+		var diff_x = mi_pos.x - z.global_position.x
+		var diff_z = mi_pos.z - z.global_position.z
+		var dist_sq = diff_x * diff_x + diff_z * diff_z
+		if dist_sq < 1.44 and dist_sq > 0.0001:
+			var dist = sqrt(dist_sq)
+			var factor = (1.2 - dist) * 3.0 / dist
+			fuerza.x += diff_x * factor
+			fuerza.z += diff_z * factor
 	velocity.x += fuerza.x
 	velocity.z += fuerza.z
 
