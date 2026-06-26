@@ -3,8 +3,8 @@
 [ext_resource type="Script" uid="uid://dg2g28wg8ihwc" path="res://mundo.gd" id="1_aou4a"]
 [ext_resource type="PackedScene" uid="uid://x3pvtugpvhbk" path="res://jugador.tscn" id="2_5ckkb"]
 [ext_resource type="Texture2D" uid="uid://cu14xa45gv7t1" path="res://assets/Prototype_Grid_Gray_07-512x512.png" id="2_aou4a"]
-[ext_resource type="Script" uid="uid://bs3wuf1gv8n88" path="res://EfectosVida.gd" id="3_2hh7m"]
-[ext_resource type="Script" uid="uid://bbm10knxyn2v1" path="res://inventario_ui.gd" id="4_t8jxu"]
+[ext_resource type="Script" uid="uid://c02htwipgigvu" path="res://EfectosVida.gd" id="3_2hh7m"]
+[ext_resource type="Script" uid="uid://dqibq7p85d2uy" path="res://inventario_ui.gd" id="4_t8jxu"]
 [ext_resource type="Script" uid="uid://bt0c3l44kqkk" path="res://node_3d.gd" id="6_5ckkb"]
 
 [sub_resource type="NavigationMesh" id="NavigationMesh_otwa2"]
@@ -34,7 +34,7 @@ navigation_mesh = SubResource("NavigationMesh_otwa2")
 [node name="CSGBox3D" type="CSGBox3D" parent="NavigationRegion3D" unique_id=1080763031]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.15180969, -0.23439026, 0.0064849854)
 use_collision = true
-size = Vector3(250, 1, 250)
+size = Vector3(250, 1, 100)
 material = SubResource("StandardMaterial3D_noarx")
 
 [node name="jugador" parent="." unique_id=1981015531 instance=ExtResource("2_5ckkb")]

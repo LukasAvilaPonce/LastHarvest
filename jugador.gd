@@ -1,24 +1,5 @@
 extends CharacterBody3D
-var vida = 100
-var puede_recibir_dano = true
 
-<<<<<<< Updated upstream
-var velocidad = 5.0
-var gravedad = 9.8
-var sensibilidad = 0.003
-
-var inventario = {
-	"semillas": 0,
-	"agua": 0,
-	"abono": 0
-}
-
-@onready var hud_vida = get_tree().get_root().get_node("mundo/CanvasLayer/Label2")
-
-@onready var camara = $Camera3D
-
-@onready var hud_semillas = get_tree().get_root().get_node("mundo/CanvasLayer/Label")
-=======
 # ─── STATS EXPORTABLES ────────────────────────────────────────────
 @export var vida_maxima := 100
 @export var vida := 100
@@ -32,8 +13,6 @@ var inventario = {
 @export var shake_fuerza := 0.08
 
 # ─── CONFIG EXTRA DESDE player_controller.gd ──────────────────────
-# Estas variables agregan salto, inclinación de cámara y movimiento visual
-# del holder de arma/manos sin reemplazar la lógica original del jugador.
 @export var permitir_salto := true
 @export var fuerza_salto := 4.5
 @export var cam: Node3D
@@ -47,9 +26,6 @@ var inventario = {
 @export var distancia_plantado := 5.0
 
 # ─── CONFIG AGACHARSE / MODO DIOS ────────────────────────────────
-# En Project Settings > Input Map crea una acción llamada "agacharse"
-# y asígnale Ctrl. Si la nombraste distinto, cambia este texto en el Inspector.
-# La acción para activar/desactivar Godmode debe llamarse "Godmode".
 @export var accion_agacharse := "agachar"
 @export var accion_godmode := "Godmode"
 @export var velocidad_agachado := 2.5
@@ -66,6 +42,7 @@ var inventario_abierto := false
 var agachado := false
 var offset_agachado_actual := 0.0
 var tiempo_ultimo_espacio_modo_dios := -10.0
+var plantas_desbloqueadas := [0, 1]
 
 # ─── SISTEMA DE OLEADAS ───────────────────────────────────────────
 var semillas_por_oleada := 5
@@ -73,15 +50,45 @@ var semillas_recogidas_oleada := 0
 var oleada_activa := true
 
 # ─── SISTEMA DE PLANTAS ───────────────────────────────────────────
-var tipo_planta_seleccionado := 0
-const NOMBRES_PLANTAS = ["Caminante", "Girasol"]
+var planta_seleccionada := 0
+const NOMBRES_PLANTAS = ["Caminante", "Girasol", "Hongo", "Enredadera", "Chile", "Centinela"]
+const SEMILLAS_KEYS = ["semillas_caminante", "semillas_girasol", "semillas_hongo", "semillas_enredadera", "semillas_chile", "semillas_arbol"]
+const COLORES_PLANTAS = [
+	Color(0.2, 0.7, 0.2),
+	Color(1.0, 0.85, 0.0),
+	Color(0.4, 0.2, 0.0),
+	Color(0.0, 0.3, 0.0),
+	Color(0.9, 0.1, 0.0),
+	Color(0.0, 0.4, 0.3),
+]
+var plantas_escenas := [
+	"res://planta.tscn",
+	"res://planta.tscn",
+	"res://hongo_explosivo.tscn",
+	"res://enredadera.tscn",
+	"res://chile_llamante.tscn",
+	"res://arbol_centinela.tscn",
+]
 
 # ─── INVENTARIO ───────────────────────────────────────────────────
 var inventario := {
-	"semillas": 5,
-	"agua": 5,
-	"abono": 5
+	"semillas_caminante": 10,
+	"semillas_girasol": 10,
+	"semillas_hongo": 5,
+	"semillas_enredadera": 5,
+	"semillas_chile": 5,
+	"semillas_arbol": 5,
+	"agua": 1000,
+	"abono": 1000,
 }
+
+# ─── HOTBAR ───────────────────────────────────────────────────────
+var hotbar_labels := {}
+var hotbar_panels := {}
+
+# ─── CROSSHAIR ────────────────────────────────────────────────────
+var crosshair: Control
+var crosshair_dot: ColorRect
 
 # ─── CAMERA SHAKE ─────────────────────────────────────────────────
 var shake_tiempo := 0.0
@@ -95,10 +102,6 @@ var input_movimiento_actual: Vector2 = Vector2.ZERO
 var pitch_camara: float = 0.0
 
 # ─── NODOS ────────────────────────────────────────────────────────
-# Compatible con estructura nueva:
-# jugador/CamHolder/Camera3D
-# y también con estructura antigua:
-# jugador/Camera3D
 @onready var cam_holder: Node3D = get_node_or_null("CamHolder") as Node3D
 @onready var camara: Camera3D = _buscar_camara()
 @onready var raycast: RayCast3D = _buscar_raycast()
@@ -106,18 +109,17 @@ var pitch_camara: float = 0.0
 @onready var hud_vida: Label = escena_actual.get_node_or_null("CanvasLayer/Label2")
 @onready var inventario_ui = escena_actual.get_node_or_null("CanvasLayer/InventarioUI")
 @onready var efectos_vida = escena_actual.get_node_or_null("CanvasLayer/EfectosVida")
->>>>>>> Stashed changes
 
 func _buscar_camara() -> Camera3D:
 	var rutas = [
 		"CamHolder/Camera3D",
+		"Camholder/Camera3D",
 		"Camera3D"
 	]
 	for ruta in rutas:
 		var nodo = get_node_or_null(ruta)
 		if nodo is Camera3D:
 			return nodo
-
 	var encontrada = find_child("Camera3D", true, false)
 	if encontrada is Camera3D:
 		return encontrada
@@ -126,6 +128,7 @@ func _buscar_camara() -> Camera3D:
 func _buscar_raycast() -> RayCast3D:
 	var rutas = [
 		"CamHolder/Camera3D/RayCast3D",
+		"Camholder/Camera3D/RayCast3D",
 		"Camera3D/RayCast3D",
 		"CamHolder/RayCast3D",
 		"RayCast3D"
@@ -134,7 +137,6 @@ func _buscar_raycast() -> RayCast3D:
 		var nodo = get_node_or_null(ruta)
 		if nodo is RayCast3D:
 			return nodo
-
 	var encontrado = find_child("RayCast3D", true, false)
 	if encontrado is RayCast3D:
 		return encontrado
@@ -143,25 +145,20 @@ func _buscar_raycast() -> RayCast3D:
 # ─── INIT ─────────────────────────────────────────────────────────
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-<<<<<<< Updated upstream
-=======
 	if camara != null:
 		posicion_original_camara = camara.position
 	else:
 		posicion_original_camara = Vector3.ZERO
-		push_warning("No se encontró Camera3D. Usa jugador/CamHolder/Camera3D o asigna una cámara válida.")
+		push_warning("No se encontró Camera3D.")
 
-	# Si no se asigna una cámara extra en el Inspector, usa la Camera3D detectada.
 	if cam == null:
 		cam = camara
 
-	# Guarda el ángulo vertical inicial para poder limitarlo y evitar que la cámara se voltee.
 	if cam_holder != null:
 		pitch_camara = cam_holder.rotation.x
 	elif camara != null:
 		pitch_camara = camara.rotation.x
 
-	# Si asignas aquí el nodo de arma/manos, se activan sway, tilt y bob.
 	if weapon_holder != null:
 		def_weapon_holder_pos = weapon_holder.position
 
@@ -170,60 +167,43 @@ func _ready():
 	actualizar_efecto_vida()
 	if inventario_ui != null:
 		inventario_ui.actualizar(inventario)
->>>>>>> Stashed changes
+	_crear_hotbar()
+	_crear_label_xp()
+	_crear_crosshair()
 
 # ─── INPUT ────────────────────────────────────────────────────────
 func _input(evento):
-<<<<<<< Updated upstream
-	if evento is InputEventMouseMotion:
-		rotate_y(-evento.relative.x * sensibilidad)
-		camara.rotate_x(-evento.relative.y * sensibilidad)
-		camara.rotation.x = clamp(camara.rotation.x, -1.2, 1.2)
-	if evento.is_action_pressed("ui_cancel"):
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-
-func _physics_process(delta):
-	if not is_on_floor():
-		velocity.y -= gravedad * delta
-
-	var direccion = Vector3.ZERO
-	if Input.is_action_pressed("mover_adelante"):  direccion -= transform.basis.z
-	if Input.is_action_pressed("mover_atras"):     direccion += transform.basis.z
-	if Input.is_action_pressed("mover_izquierda"): direccion -= transform.basis.x
-	if Input.is_action_pressed("mover_derecha"):   direccion += transform.basis.x
-
-	if direccion:
-		velocity.x = direccion.normalized().x * velocidad
-		velocity.z = direccion.normalized().z * velocidad
-	else:
-		velocity.x = move_toward(velocity.x, 0, velocidad)
-		velocity.z = move_toward(velocity.z, 0, velocidad)
-
-	move_and_slide()
-=======
-	# Toggle modo dios
 	if evento.is_action_pressed(accion_godmode):
 		modo_dios = not modo_dios
-		# El vuelo vertical ya no queda activo automáticamente.
-		# Se activa/desactiva con doble espacio mientras modo dios está encendido.
 		volando = false
 		tiempo_ultimo_espacio_modo_dios = -10.0
-		print("MODO DIOS: ", "ACTIVADO" if modo_dios else "DESACTIVADO")
+		if modo_dios:
+			plantas_desbloqueadas = [0, 1, 2, 3, 4, 5]
+			for key in SEMILLAS_KEYS:
+				inventario[key] = 999
+			inventario["agua"] = 999
+			inventario["abono"] = 999
+			print("MODO DIOS ACTIVADO — todas las plantas desbloqueadas")
+		else:
+			_restaurar_desbloqueo_real()
+			print("MODO DIOS DESACTIVADO — plantas bloqueadas restauradas")
+		_actualizar_hotbar()
 
 	if muerto:
 		return
 
-	# En modo dios, doble espacio activa/desactiva la subida vertical.
 	if modo_dios and evento.is_action_pressed("saltar"):
 		_procesar_doble_espacio_modo_dios()
 
-	# Mover cámara con el mouse
 	if evento is InputEventMouseMotion and not inventario_abierto:
 		mover_camara(evento)
 		mouse_input = evento.relative
 
 	if evento.is_action_pressed("ui_cancel"):
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		if inventario_abierto:
+			alternar_inventario()
+		else:
+			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 	if evento.is_action_pressed("inventario"):
 		alternar_inventario()
@@ -231,12 +211,22 @@ func _physics_process(delta):
 	if evento.is_action_pressed("plantar"):
 		_intentar_plantar()
 
-	# Scroll del mouse: cambiar tipo de planta
 	if evento is InputEventMouseButton and evento.pressed:
 		if evento.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_cambiar_tipo_planta(1)
-		elif evento.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_cambiar_tipo_planta(-1)
+		elif evento.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_cambiar_tipo_planta(1)
+
+	if evento is InputEventKey and evento.pressed:
+		var teclas = [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6]
+		for i in range(teclas.size()):
+			if evento.keycode == teclas[i]:
+				if not plantas_desbloqueadas.has(i):
+					print("Bloqueada — completa oleada para desbloquear")
+					break
+				planta_seleccionada = i
+				_actualizar_hotbar()
+				break
 
 # ─── LOOP PRINCIPAL ───────────────────────────────────────────────
 func _physics_process(delta):
@@ -246,10 +236,6 @@ func _physics_process(delta):
 
 	if modo_dios:
 		actualizar_agachado(delta)
-
-		# Si el vuelo del Godmode está activo, se usa movimiento libre:
-		# espacio sube y Ctrl/agacharse baja.
-		# Si el vuelo NO está activo, el jugador conserva gravedad y salto normal.
 		if volando:
 			_mover_modo_dios()
 		else:
@@ -257,7 +243,6 @@ func _physics_process(delta):
 			procesar_salto()
 			mover_jugador()
 			move_and_slide()
-
 		actualizar_shake(delta)
 		actualizar_efectos_viewmodel(delta)
 		return
@@ -274,16 +259,10 @@ func _physics_process(delta):
 func mover_camara(evento):
 	if camara == null:
 		return
-
-	# Movimiento horizontal: rota todo el jugador.
 	rotate_y(-evento.relative.x * sensibilidad)
-
-	# Movimiento vertical: rota solo el CamHolder/Camera3D y se limita para
-	# evitar que la cámara pase de 90 grados, se voltee o genere mareo.
 	var nodo_pitch: Node3D = cam_holder
 	if nodo_pitch == null:
 		nodo_pitch = camara
-
 	var limite_arriba := deg_to_rad(limite_mirada_arriba_grados)
 	var limite_abajo := deg_to_rad(limite_mirada_abajo_grados)
 	pitch_camara = clamp(
@@ -302,9 +281,6 @@ func procesar_salto():
 		velocity.y = fuerza_salto
 
 func actualizar_agachado(delta):
-	# Agacharse funciona solo en el suelo.
-	# En Godmode también funciona mientras NO estés volando.
-	# Si estás volando, Ctrl se reserva para bajar y no para agacharse.
 	agachado = _accion_presionada(accion_agacharse) and is_on_floor() and not volando
 	var objetivo := altura_camara_agachado if agachado else 0.0
 	offset_agachado_actual = lerp(offset_agachado_actual, objetivo, velocidad_transicion_agachado * delta)
@@ -326,10 +302,6 @@ func mover_jugador():
 		velocity.z = move_toward(velocity.z, 0, vel_actual)
 
 func _mover_modo_dios():
-	# Modo dios:
-	# - Ctrl / acción agacharse: bajar.
-	# - Doble espacio: activa/desactiva volando.
-	# - Espacio mantenido, solo si volando está activo: subir.
 	var input = Input.get_vector("mover_izquierda", "mover_derecha", "mover_adelante", "mover_atras")
 	input_movimiento_actual = input
 	var direccion = transform.basis.x * input.x + transform.basis.z * input.y
@@ -345,12 +317,14 @@ func _mover_modo_dios():
 
 func _procesar_doble_espacio_modo_dios():
 	var ahora := Time.get_ticks_msec() / 1000.0
-	if ahora - tiempo_ultimo_espacio_modo_dios <= ventana_doble_espacio_modo_dios:
+	var delta_t = ahora - tiempo_ultimo_espacio_modo_dios
+	if delta_t <= ventana_doble_espacio_modo_dios:
 		volando = not volando
 		tiempo_ultimo_espacio_modo_dios = -10.0
 		print("VUELO MODO DIOS: ", "ACTIVADO" if volando else "DESACTIVADO")
 	else:
 		tiempo_ultimo_espacio_modo_dios = ahora
+		print("Modo dios: primer espacio registrado — presiona de nuevo rápido para volar")
 
 func _accion_presionada(nombre_accion: String) -> bool:
 	if not InputMap.has_action(nombre_accion):
@@ -406,9 +380,16 @@ func weapon_bob(vel: float, delta):
 		weapon_holder.position.y = lerp(weapon_holder.position.y, def_weapon_holder_pos.y, 10 * delta)
 		weapon_holder.position.x = lerp(weapon_holder.position.x, def_weapon_holder_pos.x, 10 * delta)
 
+func recibir_curacion(cantidad: int):
+	if muerto:
+		return
+	vida = clampi(vida + cantidad, 0, vida_maxima)
+	actualizar_hud_vida()
+	actualizar_efecto_vida()
+	print("Jugador curado: +", cantidad, " HP (total: ", vida, ")")
+
 # ─── DAÑO Y MUERTE ────────────────────────────────────────────────
 func recibir_dano(cantidad: int):
-	# Bloqueos: modo dios, ya muerto, o en periodo de invencibilidad
 	if muerto or modo_dios:
 		return
 	if not puede_recibir_dano:
@@ -427,7 +408,6 @@ func recibir_dano(cantidad: int):
 		morir()
 		return
 
-	# Periodo de invencibilidad de 1 segundo tras recibir golpe
 	await get_tree().create_timer(1.0).timeout
 	if is_inside_tree() and not muerto:
 		puede_recibir_dano = true
@@ -459,7 +439,6 @@ func iniciar_shake(fuerza: float = shake_fuerza, duracion: float = shake_duracio
 func actualizar_shake(delta):
 	if camara == null:
 		return
-
 	if shake_tiempo > 0:
 		shake_tiempo -= delta
 		var offset = Vector3(
@@ -488,9 +467,9 @@ func agregar_item(nombre_item: String, cantidad: int = 1):
 	if not inventario.has(nombre_item):
 		inventario[nombre_item] = 0
 	inventario[nombre_item] += cantidad
+	_actualizar_hotbar()
 	if inventario_ui != null:
 		inventario_ui.actualizar(inventario)
->>>>>>> Stashed changes
 
 # ─── SISTEMA DE OLEADAS ───────────────────────────────────────────
 func nueva_oleada():
@@ -498,67 +477,257 @@ func nueva_oleada():
 	oleada_activa = true
 
 func recoger_semilla():
-<<<<<<< Updated upstream
-	inventario["semillas"] += 1
-	hud_semillas.text = "Semillas: " + str(inventario["semillas"])
-
-
-func _on_semilla_semilla_recogida():
-	recoger_semilla()
-	
-func recibir_dano(cantidad):
-	if puede_recibir_dano:
-		vida -= cantidad
-		puede_recibir_dano = false
-		hud_vida.text = "Vida: " + str(vida)
-		
-		await get_tree().create_timer(1.0).timeout
-		puede_recibir_dano = true
-		
-		if vida <= 0:
-			get_tree().reload_current_scene()
-=======
 	if not oleada_activa:
 		return
 	if semillas_recogidas_oleada >= semillas_por_oleada:
 		print("Límite de semillas alcanzado esta oleada")
 		return
 	semillas_recogidas_oleada += 1
-	agregar_item("semillas", 1)
+	if randi() % 2 == 0:
+		agregar_item("semillas_caminante", 1)
+	else:
+		agregar_item("semillas_girasol", 1)
 	print("Semillas esta oleada: ", semillas_recogidas_oleada, "/", semillas_por_oleada)
 
 func _on_semilla_semilla_recogida():
 	recoger_semilla()
 
+# ─── HOTBAR UI ────────────────────────────────────────────────────
+func _crear_hotbar():
+	var canvas = escena_actual.get_node_or_null("CanvasLayer")
+	if canvas == null:
+		return
+
+	var fondo = PanelContainer.new()
+	fondo.name = "Hotbar"
+	fondo.anchor_left = 0.5
+	fondo.anchor_right = 0.5
+	fondo.anchor_top = 1.0
+	fondo.anchor_bottom = 1.0
+	fondo.offset_left = -550
+	fondo.offset_right = 550
+	fondo.offset_top = -90
+	fondo.offset_bottom = -5
+	canvas.add_child(fondo)
+
+	var hbox = HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", 4)
+	fondo.add_child(hbox)
+
+	for i in range(NOMBRES_PLANTAS.size()):
+		var panel = PanelContainer.new()
+		panel.custom_minimum_size = Vector2(120, 55)
+		hbox.add_child(panel)
+
+		var vbox = VBoxContainer.new()
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		panel.add_child(vbox)
+
+		var icono = ColorRect.new()
+		icono.custom_minimum_size = Vector2(16, 16)
+		icono.color = COLORES_PLANTAS[i]
+		vbox.add_child(icono)
+
+		var lbl = Label.new()
+		lbl.add_theme_font_size_override("font_size", 13)
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(lbl)
+
+		hotbar_labels[i] = lbl
+		hotbar_panels[i] = panel
+
+	var sep = VSeparator.new()
+	hbox.add_child(sep)
+
+	for key in ["agua", "abono"]:
+		var panel = PanelContainer.new()
+		panel.custom_minimum_size = Vector2(90, 55)
+		hbox.add_child(panel)
+
+		var vbox = VBoxContainer.new()
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		panel.add_child(vbox)
+
+		var icono = ColorRect.new()
+		icono.custom_minimum_size = Vector2(16, 16)
+		icono.color = Color(0.3, 0.5, 1.0) if key == "agua" else Color(0.5, 0.3, 0.1)
+		vbox.add_child(icono)
+
+		var lbl = Label.new()
+		lbl.add_theme_font_size_override("font_size", 13)
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(lbl)
+
+		hotbar_labels[key] = lbl
+
+	_actualizar_hotbar()
+
+func _actualizar_hotbar():
+	for i in range(NOMBRES_PLANTAS.size()):
+		if hotbar_labels.has(i):
+			if plantas_desbloqueadas.has(i):
+				var cant = inventario.get(SEMILLAS_KEYS[i], 0)
+				hotbar_labels[i].text = NOMBRES_PLANTAS[i] + "\n" + str(cant)
+			else:
+				var oleada_req = {2: 1, 3: 2, 4: 3, 5: 4}
+				var req = oleada_req.get(i, "?")
+				hotbar_labels[i].text = "Locked\nOleada " + str(req)
+
+	for key in ["agua", "abono"]:
+		if hotbar_labels.has(key):
+			hotbar_labels[key].text = key.capitalize() + "\n" + str(inventario.get(key, 0))
+
+	for i in hotbar_panels:
+		if not i is int:
+			continue
+		var panel = hotbar_panels[i]
+		var style = StyleBoxFlat.new()
+		if i == planta_seleccionada:
+			style.bg_color = Color(0.3, 0.6, 0.3, 0.8)
+			style.border_color = Color(1.0, 1.0, 1.0)
+			style.set_border_width_all(3)
+		else:
+			style.bg_color = Color(0.15, 0.15, 0.15, 0.7)
+			style.border_color = Color(0.4, 0.4, 0.4)
+			style.set_border_width_all(1)
+		style.set_corner_radius_all(4)
+		panel.add_theme_stylebox_override("panel", style)
+
+	var label_planta = get_tree().current_scene.get_node_or_null("CanvasLayer/LabelPlanta")
+	if label_planta:
+		label_planta.text = "Planta: " + NOMBRES_PLANTAS[planta_seleccionada]
+
+var label_xp: Label
+
+func _crear_label_xp():
+	var canvas = escena_actual.get_node_or_null("CanvasLayer")
+	if canvas == null:
+		return
+	label_xp = Label.new()
+	label_xp.name = "LabelXP"
+	label_xp.anchor_left = 1.0
+	label_xp.anchor_right = 1.0
+	label_xp.offset_left = -300
+	label_xp.offset_top = 10
+	label_xp.offset_right = -10
+	label_xp.offset_bottom = 40
+	label_xp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	label_xp.add_theme_font_size_override("font_size", 20)
+	canvas.add_child(label_xp)
+	_actualizar_label_xp()
+	var xp_node = get_node_or_null("/root/SistemaXP")
+	if xp_node:
+		xp_node.nivel_subio.connect(_on_nivel_subio)
+		xp_node.xp_cambio.connect(_on_xp_cambio)
+		xp_node.planta_desbloqueada.connect(_on_planta_desbloqueada)
+
+func _on_nivel_subio(_nivel_nuevo):
+	_actualizar_label_xp()
+	_actualizar_hotbar()
+
+func _on_xp_cambio(_xp, _xp_sig):
+	_actualizar_label_xp()
+
+func _on_planta_desbloqueada(_oleada):
+	_actualizar_hotbar()
+
+func _actualizar_label_xp():
+	if label_xp == null:
+		return
+	var xp_node = get_node_or_null("/root/SistemaXP")
+	if xp_node:
+		label_xp.text = "Nivel " + str(xp_node.nivel) + " | XP: " + str(xp_node.xp) + "/" + str(xp_node.xp_para_siguiente)
+	else:
+		label_xp.text = "XP: --"
+
+# ─── CROSSHAIR ────────────────────────────────────────────────────
+func _crear_crosshair():
+	var canvas = escena_actual.get_node_or_null("CanvasLayer")
+	if canvas == null:
+		return
+
+	crosshair = Control.new()
+	crosshair.name = "Crosshair"
+	crosshair.anchor_left = 0.5
+	crosshair.anchor_right = 0.5
+	crosshair.anchor_top = 0.5
+	crosshair.anchor_bottom = 0.5
+	crosshair.offset_left = -12
+	crosshair.offset_right = 12
+	crosshair.offset_top = -12
+	crosshair.offset_bottom = 12
+	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(crosshair)
+
+	crosshair_dot = ColorRect.new()
+	crosshair_dot.size = Vector2(6, 6)
+	crosshair_dot.position = Vector2(9, 9)
+	crosshair_dot.color = Color(1, 1, 1, 0.8)
+	crosshair.add_child(crosshair_dot)
+
+	var linea_h = ColorRect.new()
+	linea_h.size = Vector2(24, 2)
+	linea_h.position = Vector2(0, 11)
+	linea_h.color = Color(1, 1, 1, 0.4)
+	crosshair.add_child(linea_h)
+
+	var linea_v = ColorRect.new()
+	linea_v.size = Vector2(2, 24)
+	linea_v.position = Vector2(11, 0)
+	linea_v.color = Color(1, 1, 1, 0.4)
+	crosshair.add_child(linea_v)
+
+func _animar_crosshair_plantar():
+	if crosshair_dot == null:
+		return
+	crosshair_dot.color = Color(0.2, 1.0, 0.3, 1.0)
+	var tween = create_tween()
+	tween.tween_property(crosshair_dot, "scale", Vector2(3, 3), 0.15)
+	tween.tween_property(crosshair_dot, "scale", Vector2(1, 1), 0.2)
+	tween.parallel().tween_property(crosshair_dot, "color", Color(1, 1, 1, 0.8), 0.2)
+
+func _animar_mano_plantar():
+	var canvas = escena_actual.get_node_or_null("CanvasLayer")
+	if canvas == null:
+		return
+	var mano = Label.new()
+	mano.text = "+"
+	mano.add_theme_font_size_override("font_size", 48)
+	mano.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3))
+	mano.anchor_left = 0.5
+	mano.anchor_top = 0.5
+	mano.offset_left = 20
+	mano.offset_top = -40
+	mano.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(mano)
+	var tween = mano.create_tween()
+	tween.tween_property(mano, "offset_top", -80.0, 0.4)
+	tween.parallel().tween_property(mano, "modulate:a", 0.0, 0.4)
+	tween.tween_callback(mano.queue_free)
+
 # ─── SISTEMA DE PLANTAS ───────────────────────────────────────────
 func _cambiar_tipo_planta(delta_slot: int):
-	tipo_planta_seleccionado = (tipo_planta_seleccionado + delta_slot) % NOMBRES_PLANTAS.size()
-	if tipo_planta_seleccionado < 0:
-		tipo_planta_seleccionado = NOMBRES_PLANTAS.size() - 1
-	print("Planta seleccionada: ", NOMBRES_PLANTAS[tipo_planta_seleccionado])
-	var label = get_tree().current_scene.get_node_or_null("CanvasLayer/LabelPlanta")
-	if label:
-		label.text = "Planta: " + NOMBRES_PLANTAS[tipo_planta_seleccionado]
+	var siguiente = (planta_seleccionada + delta_slot) % NOMBRES_PLANTAS.size()
+	if siguiente < 0:
+		siguiente = NOMBRES_PLANTAS.size() - 1
+	if plantas_desbloqueadas.has(siguiente):
+		planta_seleccionada = siguiente
+		_actualizar_hotbar()
 
 func _obtener_punto_plantado():
-	# Primero intenta usar un RayCast3D si existe.
-	# Puede estar en CamHolder/Camera3D/RayCast3D, Camera3D/RayCast3D u otra ruta.
 	if raycast != null:
 		raycast.force_raycast_update()
 		if raycast.is_colliding():
 			return raycast.get_collision_point()
-
-	# Si no tienes RayCast3D en la escena, usamos un raycast por código desde la cámara.
 	if camara == null:
 		return null
-
 	var origen = camara.global_transform.origin
 	var destino = origen + (-camara.global_transform.basis.z * distancia_plantado)
 	var space_state = get_world_3d().direct_space_state
 	var query = PhysicsRayQueryParameters3D.create(origen, destino)
 	query.exclude = [self]
 	var resultado = space_state.intersect_ray(query)
-
 	if resultado.has("position"):
 		return resultado["position"]
 	return null
@@ -568,8 +737,11 @@ func _intentar_plantar():
 	if punto == null:
 		print("No hay suelo cerca para plantar")
 		return
-	if inventario.get("semillas", 0) <= 0:
-		print("No tienes semillas")
+
+	var semilla_key = SEMILLAS_KEYS[planta_seleccionada]
+
+	if inventario.get(semilla_key, 0) <= 0:
+		print("No tienes semillas de ", NOMBRES_PLANTAS[planta_seleccionada])
 		return
 	if inventario.get("agua", 0) <= 0:
 		print("No tienes agua")
@@ -578,16 +750,75 @@ func _intentar_plantar():
 		print("No tienes abono")
 		return
 
-	var planta_escena = preload("res://planta.tscn")
+	var planta_escena = load(plantas_escenas[planta_seleccionada])
 	var nueva_planta = planta_escena.instantiate()
 	nueva_planta.position = punto
-	nueva_planta.tipo = tipo_planta_seleccionado
+	if nueva_planta.get("tipo") != null:
+		nueva_planta.tipo = planta_seleccionada
 	get_tree().current_scene.add_child(nueva_planta)
 
-	inventario["semillas"] -= 1
+	inventario[semilla_key] -= 1
 	inventario["agua"] -= 1
 	inventario["abono"] -= 1
+	_actualizar_hotbar()
+	_animar_crosshair_plantar()
+	_animar_mano_plantar()
 	if inventario_ui != null:
 		inventario_ui.actualizar(inventario)
-	print("Planta colocada [", NOMBRES_PLANTAS[tipo_planta_seleccionado], "] en: ", punto)
->>>>>>> Stashed changes
+	print("Planta colocada [", NOMBRES_PLANTAS[planta_seleccionada], "] en: ", punto)
+
+# ─── DESBLOQUEO POR OLEADA ────────────────────────────────────────
+func desbloquear_planta_por_oleada(numero_oleada_actual: int):
+	var desbloqueos = {
+		1: 2,
+		2: 3,
+		3: 4,
+		4: 5,
+	}
+	if desbloqueos.has(numero_oleada_actual):
+		var nueva = desbloqueos[numero_oleada_actual]
+		if not plantas_desbloqueadas.has(nueva):
+			plantas_desbloqueadas.append(nueva)
+			inventario[SEMILLAS_KEYS[nueva]] = 5
+			print("NUEVA PLANTA DESBLOQUEADA: ", NOMBRES_PLANTAS[nueva])
+			_mostrar_notificacion_desbloqueo(nueva)
+	_actualizar_hotbar()
+
+func _mostrar_notificacion_desbloqueo(indice: int):
+	var canvas = escena_actual.get_node_or_null("CanvasLayer")
+	if canvas == null:
+		return
+	var label = Label.new()
+	label.text = NOMBRES_PLANTAS[indice] + " desbloqueada!"
+	label.add_theme_font_size_override("font_size", 28)
+	label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3))
+	label.anchor_left = 0.5
+	label.anchor_right = 0.5
+	label.anchor_top = 0.5
+	label.anchor_bottom = 0.5
+	label.offset_left = -200
+	label.offset_right = 200
+	label.offset_top = -80
+	label.offset_bottom = -40
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	canvas.add_child(label)
+	var tween = label.create_tween()
+	tween.tween_property(label, "position:y", label.position.y - 60, 2.0)
+	tween.parallel().tween_property(label, "modulate:a", 0.0, 2.0)
+	tween.tween_callback(label.queue_free)
+
+func _restaurar_desbloqueo_real():
+	var mundo = get_tree().current_scene
+	var oleada_actual = 0
+	if mundo and mundo.get("numero_oleada") != null:
+		oleada_actual = mundo.numero_oleada
+
+	plantas_desbloqueadas = [0, 1]
+	var desbloqueos = {1: 2, 2: 3, 3: 4, 4: 5}
+	for oleada in range(1, oleada_actual + 1):
+		if desbloqueos.has(oleada) and not plantas_desbloqueadas.has(desbloqueos[oleada]):
+			plantas_desbloqueadas.append(desbloqueos[oleada])
+
+	inventario["agua"] = 1000
+	inventario["abono"] = 1000
+	_actualizar_hotbar()

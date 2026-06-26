@@ -48,8 +48,8 @@ var intervalo_spawn_zombie = 30.0
 var modo_caos = false
 
 # Spawn en el lado opuesto a la Planta Madre (X negativo, frente amplio)
-var zona_spawn_min := Vector3(-100.0, 2.0, -90.0)
-var zona_spawn_max := Vector3(-80.0, 2.0,  90.0)
+var zona_spawn_min := Vector3(-100.0, 2.0, -40.0)
+var zona_spawn_max := Vector3(-80.0, 2.0,  40.0)
 var separacion_spawn_zombie = 3.5
 var intentos_spawn_zombie = 20
 
@@ -60,7 +60,6 @@ var intentos_spawn_zombie = 20
 
 # ─── INIT ─────────────────────────────────────────────────────────
 func _ready():
-	randomize()
 	mostrar_espera_inicio()
 
 # ─── LOOP PRINCIPAL ───────────────────────────────────────────────
@@ -138,10 +137,17 @@ func iniciar_fase_loot():
 	modo_caos = false
 	if jugador != null and jugador.has_method("nueva_oleada"):
 		jugador.nueva_oleada()
+	if jugador != null and jugador.has_method("desbloquear_planta_por_oleada"):
+		jugador.desbloquear_planta_por_oleada(numero_oleada)
 	# Dropear loot de la Planta Madre al terminar oleada
 	var plantas_madre = get_tree().get_nodes_in_group("planta_madre")
 	if plantas_madre.size() > 0:
 		plantas_madre[0].dropear_loot(numero_oleada)
+	var xp_node = get_node_or_null("/root/SistemaXP")
+	if xp_node and numero_oleada > 0:
+		xp_node.agregar_xp(100 * numero_oleada)
+		xp_node.completar_oleada()
+		print("XP de oleada: +", 100 * numero_oleada)
 	actualizar_label_fase("FASE LOOT — Busca recursos")
 	print("--- FASE LOOT iniciada ---")
 

@@ -8,6 +8,7 @@ var muriendo := false
 # ─── NODOS Y VISUAL ───────────────────────────────────────────────
 @onready var mesh := $MeshInstance3D
 var material: StandardMaterial3D
+var barra: Node3D
 
 # ─── COLORES ──────────────────────────────────────────────────────
 const COLOR_NORMAL  = Color(0.0, 0.8, 0.2)
@@ -20,6 +21,11 @@ func _ready():
 	material = StandardMaterial3D.new()
 	material.albedo_color = COLOR_NORMAL
 	mesh.material_override = material
+	barra = preload("res://barra_vida.gd").new()
+	barra.position = Vector3(0, 7, 0)
+	add_child(barra)
+	barra.crear(3.0, 0.25)
+	barra.actualizar(hp, hp_maximo, "Planta Madre")
 	print("Planta Madre lista — HP: ", hp)
 
 # ─── DAÑO ─────────────────────────────────────────────────────────
@@ -30,8 +36,9 @@ func recibir_dano(cantidad: int):
 	hp = clampi(hp, 0, hp_maximo)
 	print("Planta Madre recibió daño: -", cantidad, " HP (total: ", hp, "/", hp_maximo, ")")
 
-	# Actualizar HUD si existe
 	_actualizar_hud()
+	if barra != null:
+		barra.actualizar(hp, hp_maximo, "Planta Madre")
 
 	if hp <= 0:
 		_morir()
@@ -54,6 +61,8 @@ func recibir_curacion(cantidad: int):
 	hp = clampi(hp + cantidad, 0, hp_maximo)
 	print("Planta Madre curada: +", cantidad, " HP (total: ", hp, "/", hp_maximo, ")")
 	_actualizar_hud()
+	if barra != null:
+		barra.actualizar(hp, hp_maximo, "Planta Madre")
 
 # ─── LOOT AL GANAR OLEADA ─────────────────────────────────────────
 func dropear_loot(numero_oleada: int):
@@ -61,14 +70,20 @@ func dropear_loot(numero_oleada: int):
 	if jugador == null:
 		return
 
-	# Loot escala con el número de oleada
-	var semillas = 5 + (numero_oleada * 2)
-	var abono    = 3 + (numero_oleada * 1)
+	var base = 3 + numero_oleada
+	var agua   = 10 + numero_oleada * 3
+	var abono  = 10 + numero_oleada * 3
 
-	jugador.agregar_item("semillas", semillas)
+	jugador.agregar_item("semillas_caminante", base + 2)
+	jugador.agregar_item("semillas_girasol", base)
+	jugador.agregar_item("semillas_hongo", base)
+	jugador.agregar_item("semillas_enredadera", base)
+	jugador.agregar_item("semillas_chile", base)
+	jugador.agregar_item("semillas_arbol", base)
+	jugador.agregar_item("agua", agua)
 	jugador.agregar_item("abono", abono)
 
-	print("Planta Madre dropeo loot — Semillas: +", semillas, " Abono: +", abono)
+	print("Loot oleada ", numero_oleada, " — Agua: +", agua, " Abono: +", abono)
 
 # ─── MUERTE → GAME OVER ───────────────────────────────────────────
 func _morir():
