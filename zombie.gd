@@ -18,6 +18,8 @@ var timer_buscar := 0.0
 var color_base := Color(0.9, 0.9, 0.9)
 var _pos_y_modelo := 0.0
 var _ataque_idx := 0
+var _pos_anterior := Vector3.ZERO
+var _timer_atascado := 0.0
 var _anim_run := ""
 var _anim_idle := ""
 var _anim_ataques := []
@@ -44,23 +46,77 @@ func _ready():
 	barra.actualizar(hp, 80, "Zombie")
 
 func _cargar_modelo_zombie():
+	# Ocultar mesh placeholder
 	var mesh_viejo = get_node_or_null("MeshInstance3D")
 	if mesh_viejo != null:
 		mesh_viejo.visible = false
-	# Buscar modelo (ZombieModel o copzombie)
-	modelo = get_node_or_null("ZombieModel")
-	if modelo == null:
-		modelo = get_node_or_null("copzombie_l_actisdato")
-	# Buscar AnimationPlayer en cualquier hijo
-	var anim_found = find_child("AnimationPlayer", true, false)
-	if anim_found is AnimationPlayer:
-		anim = anim_found
-		anim.root_motion_track = NodePath("")
+
+	# Cargar modelo con skeleton
+	var modelo_path = "res://assets/animaciones/Model/characterMedium.fbx"
+	if not ResourceLoader.exists(modelo_path):
+		return
+	var escena_z = load(modelo_path)
+	if escena_z == null:
+		return
+	modelo = escena_z.instantiate()
+	modelo.name = "ZombieSkin"
+	modelo.scale = Vector3(1.5, 1.5, 1.5)
+	modelo.position = Vector3(0, -1, 0)
+	add_child(modelo)
+
+	# Aplicar skin zombie aleatoria
+	var skins = ["res://assets/animaciones/Skins/zombieA.png", "res://assets/animaciones/Skins/zombieC.png"]
+	var tex_path = skins[randi() % skins.size()]
+	if ResourceLoader.exists(tex_path):
+		var textura = load(tex_path)
+		_aplicar_textura(modelo, textura)
+
+	# Buscar AnimationPlayer del modelo
+	anim = modelo.find_child("AnimationPlayer", true, false)
+	if anim == null:
+		return
+	anim.root_motion_track = NodePath("")
+
+	# Cargar animaciones del pack
+	var libs = {"idle": "res://assets/animaciones/Animations/idle.fbx", "run": "res://assets/animaciones/Animations/run.fbx", "jump": "res://assets/animaciones/Animations/jump.fbx"}
+	for nombre in libs:
+		if ResourceLoader.exists(libs[nombre]):
+			var lib = load(libs[nombre])
+			if lib is AnimationLibrary:
+				if anim.has_animation_library(nombre):
+					anim.remove_animation_library(nombre)
+				anim.add_animation_library(nombre, lib)
+
+	# Detectar nombres de animación
+	_anim_idle = ""
+	_anim_run = ""
+	_anim_ataques = []
+	for lib_name in anim.get_animation_library_list():
+		for anim_name in anim.get_animation_library(lib_name).get_animation_list():
+			var full = lib_name + "/" + anim_name if lib_name != "" else anim_name
+			if lib_name == "idle":
+				_anim_idle = full
+			elif lib_name == "run":
+				_anim_run = full
+			elif lib_name == "jump":
+				_anim_ataques.append(full)
+	if _anim_idle == "":
 		_detectar_animaciones()
-		if _anim_idle != "":
-			anim.play(_anim_idle)
-	if modelo != null:
-		_pos_y_modelo = modelo.position.y
+	if _anim_run == "":
+		_anim_run = _anim_idle
+	if _anim_ataques.is_empty():
+		_anim_ataques.append(_anim_run)
+	if _anim_idle != "":
+		anim.play(_anim_idle)
+	_pos_y_modelo = modelo.position.y
+
+func _aplicar_textura(nodo: Node, textura: Texture2D):
+	if nodo is MeshInstance3D:
+		var mat = StandardMaterial3D.new()
+		mat.albedo_texture = textura
+		nodo.material_override = mat
+	for hijo in nodo.get_children():
+		_aplicar_textura(hijo, textura)
 
 func _detectar_animaciones():
 	if anim == null:
@@ -93,9 +149,7 @@ func _detectar_animaciones():
 		_anim_ataques.append(todas[0])
 
 func _colorear(color: Color):
-	var target = get_node_or_null("ZombieModel")
-	if target == null:
-		target = get_node_or_null("copzombie_l_actisdato")
+	var target = get_node_or_null("ZombieSkin")
 	if target == null:
 		for child in get_children():
 			if child is MeshInstance3D:
@@ -196,6 +250,16 @@ func _physics_process(delta):
 		_aplicar_separacion()
 	else:
 		var dir = dir_al_objetivo.normalized()
+		# Detectar si está atascado
+		var movimiento = global_position.distance_to(_pos_anterior)
+		if movimiento < 0.05:
+			_timer_atascado += delta
+			if _timer_atascado > 0.5:
+				dir = dir.rotated(Vector3.UP, randf_range(-1.2, 1.2))
+				_timer_atascado = 0.0
+		else:
+			_timer_atascado = 0.0
+		_pos_anterior = global_position
 		velocity.x = dir.x * velocidad
 		velocity.z = dir.z * velocidad
 		if dir.length() > 0.1:
@@ -247,9 +311,7 @@ func recibir_dano(cantidad: int):
 
 func _efecto_recibir_dano():
 	_colorear(Color(1.0, 0.2, 0.2))
-	var modelo_node = get_node_or_null("ZombieModel")
-	if modelo_node == null:
-		modelo_node = get_node_or_null("copzombie_l_actisdato")
+	var modelo_node = get_node_or_null("ZombieSkin")
 	if modelo_node != null:
 		var pos_orig = modelo_node.position
 		modelo_node.position = pos_orig + Vector3(randf_range(-0.2, 0.2), 0, randf_range(-0.2, 0.2))

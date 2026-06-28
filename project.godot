@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 SistemaXP="*res://sistema_xp.gd"
 GestorMusica="*res://gestor_musica.gd"
+DecoradorMapa="*res://decorador_mapa.gd"
 
 [display]
 

@@ -39,7 +39,12 @@ func _fix_posicion():
 		mesh_node.position = Vector3(0, 0, 0)
 	var col_node = get_node_or_null("CollisionShape3D")
 	if col_node != null:
-		col_node.position = Vector3(0, 0, 0)
+		col_node.transform = Transform3D.IDENTITY
+		col_node.position = Vector3(0, 2, 0)
+		col_node.scale = Vector3(1, 1, 1)
+		var shape = BoxShape3D.new()
+		shape.size = Vector3(5, 5, 5)
+		col_node.shape = shape
 	# Mover Planta Madre dentro del mapa si está fuera
 	if abs(global_position.x) > 45 or abs(global_position.z) > 22:
 		global_position = Vector3(0, 0.5, 0)
@@ -124,10 +129,10 @@ func dropear_loot(numero_oleada: int):
 	if numero_oleada == 0:
 		_dropear_arma()
 
-	# Drop fijo: 3 caminantes, 2 girasol
+	# Drop fijo: 4 caminantes, 3 girasol
 	var drops = [
-		{"key": "semillas_caminante", "cant": 3},
-		{"key": "semillas_girasol", "cant": 2},
+		{"key": "semillas_caminante", "cant": 4},
+		{"key": "semillas_girasol", "cant": 3},
 	]
 	var desbloqueadas = [0, 1]
 	if jugador_nodo.get("plantas_desbloqueadas") != null:

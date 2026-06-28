@@ -127,6 +127,11 @@ func _process(delta):
 		return
 
 	_actualizar_luz(delta)
+	if estado_actual == Estado.OLEADA or estado_actual == Estado.CAOS or estado_actual == Estado.BOSS_FIGHT:
+		timer_rayo -= delta
+		if timer_rayo <= 0:
+			timer_rayo = randf_range(4.0, 10.0)
+			_rayo_rojo()
 
 	match estado_actual:
 		Estado.LOOT:
@@ -498,6 +503,50 @@ func actualizar_label_fase(texto: String):
 	tween.tween_interval(3.0)
 	tween.tween_property(label_fase, "modulate:a", 0.0, 1.5)
 
+func _rayo_rojo():
+	var escena = get_tree().current_scene
+	if escena == null:
+		return
+	# Flash rojo en el cielo
+	if env != null:
+		var color_actual = env.background_color
+		env.background_color = Color(0.5, 0.1, 0.05)
+		var tw_cielo = create_tween()
+		tw_cielo.tween_property(env, "background_color", color_actual, 0.3)
+	# Rayo visual (línea roja del cielo al suelo)
+	var rayo = MeshInstance3D.new()
+	var mesh_rayo = BoxMesh.new()
+	mesh_rayo.size = Vector3(0.3, 60, 0.3)
+	rayo.mesh = mesh_rayo
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.2, 0.0, 0.9)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.no_depth_test = true
+	rayo.material_override = mat
+	rayo.global_position = Vector3(randf_range(-40, 40), 30, randf_range(-40, 40))
+	escena.add_child(rayo)
+	# Impacto en el suelo
+	var impacto = MeshInstance3D.new()
+	var mesh_imp = SphereMesh.new()
+	mesh_imp.radius = 1.0
+	mesh_imp.height = 0.5
+	impacto.mesh = mesh_imp
+	var mat_imp = StandardMaterial3D.new()
+	mat_imp.albedo_color = Color(1.0, 0.3, 0.0, 0.7)
+	mat_imp.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat_imp.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	impacto.material_override = mat_imp
+	impacto.global_position = Vector3(rayo.global_position.x, 0.5, rayo.global_position.z)
+	escena.add_child(impacto)
+	var tween = rayo.create_tween()
+	tween.tween_property(mat, "albedo_color:a", 0.0, 0.4)
+	tween.tween_callback(rayo.queue_free)
+	var tw_imp = impacto.create_tween()
+	tw_imp.tween_property(impacto, "scale", Vector3(5, 1, 5), 0.3)
+	tw_imp.parallel().tween_property(mat_imp, "albedo_color:a", 0.0, 0.3)
+	tw_imp.tween_callback(impacto.queue_free)
+
 var ambiente: WorldEnvironment
 var env: Environment
 
@@ -514,8 +563,9 @@ func _crear_ambiente():
 
 # ─── DÍA / NOCHE ─────────────────────────────────────────────────
 const COLOR_CIELO_DIA = Color(0.4, 0.5, 0.7)
-const COLOR_CIELO_NOCHE = Color(0.05, 0.05, 0.12)
-const COLOR_CIELO_BOSS = Color(0.1, 0.02, 0.02)
+const COLOR_CIELO_NOCHE = Color(0.15, 0.02, 0.02)
+const COLOR_CIELO_BOSS = Color(0.2, 0.0, 0.0)
+var timer_rayo := 0.0
 
 func _actualizar_luz(delta):
 	if luz == null:
@@ -523,7 +573,7 @@ func _actualizar_luz(delta):
 	if abs(luz_actual - luz_objetivo) > 0.01:
 		luz_actual = lerp(luz_actual, luz_objetivo, 1.5 * delta)
 		luz.light_energy = luz_actual
-		luz.light_color = Color(1, 1, 1).lerp(Color(0.3, 0.3, 0.6), 1.0 - clampf(luz_actual / LUZ_DIA, 0.0, 1.0))
+		luz.light_color = Color(1, 1, 1).lerp(Color(0.8, 0.2, 0.1), 1.0 - clampf(luz_actual / LUZ_DIA, 0.0, 1.0))
 
 		if env != null:
 			var t = 1.0 - clampf(luz_actual / LUZ_DIA, 0.0, 1.0)
