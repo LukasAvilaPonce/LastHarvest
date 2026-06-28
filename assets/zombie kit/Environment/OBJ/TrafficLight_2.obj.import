@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://bdnuolg7r7g1w"
+path="res://.godot/imported/TrafficLight_2.obj-bac44df3191fb2e5a54280513d2c646a.mesh"
+
+[deps]
+
+files=["res://.godot/imported/TrafficLight_2.obj-bac44df3191fb2e5a54280513d2c646a.mesh"]
+
+source_file="res://assets/zombie kit/Environment/OBJ/TrafficLight_2.obj"
+dest_files=["res://.godot/imported/TrafficLight_2.obj-bac44df3191fb2e5a54280513d2c646a.mesh", "res://.godot/imported/TrafficLight_2.obj-bac44df3191fb2e5a54280513d2c646a.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

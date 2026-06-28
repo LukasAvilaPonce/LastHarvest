@@ -16,22 +16,16 @@ var hp := 80
 var muriendo := false
 var timer_buscar := 0.0
 var color_base := Color(0.9, 0.9, 0.9)
+var _pos_y_modelo := 0.0
+var _ataque_idx := 0
+var _anim_run := ""
+var _anim_idle := ""
+var _anim_ataques := []
 
 # ─── NODOS ────────────────────────────────────────────────────────
 @onready var nav: NavigationAgent3D = get_node_or_null("NavigationAgent3D")
-@onready var anim: AnimationPlayer = _buscar_anim()
-@onready var modelo: Node3D = get_node_or_null("copzombie_l_actisdato")
-
-func _buscar_anim() -> AnimationPlayer:
-	var rutas = [
-		"copzombie_l_actisdato/AnimationPlayer",
-		"AnimationPlayer"
-	]
-	for ruta in rutas:
-		var nodo = get_node_or_null(ruta)
-		if nodo is AnimationPlayer:
-			return nodo
-	return null
+@onready var anim: AnimationPlayer = null
+@onready var modelo: Node3D = null
 
 # ─── INIT ─────────────────────────────────────────────────────────
 func _ready():
@@ -50,20 +44,53 @@ func _ready():
 	barra.actualizar(hp, 80, "Zombie")
 
 func _cargar_modelo_zombie():
-	# Ocultar cápsula vieja si existe
 	var mesh_viejo = get_node_or_null("MeshInstance3D")
 	if mesh_viejo != null:
 		mesh_viejo.visible = false
-	var modelo_viejo = get_node_or_null("copzombie_l_actisdato")
-	if modelo_viejo != null:
-		modelo_viejo.visible = false
-	# Buscar modelo nuevo (ya integrado en la escena)
+	# Buscar modelo (ZombieModel o copzombie)
 	modelo = get_node_or_null("ZombieModel")
+	if modelo == null:
+		modelo = get_node_or_null("copzombie_l_actisdato")
+	# Buscar AnimationPlayer en cualquier hijo
+	var anim_found = find_child("AnimationPlayer", true, false)
+	if anim_found is AnimationPlayer:
+		anim = anim_found
+		anim.root_motion_track = NodePath("")
+		_detectar_animaciones()
+		if _anim_idle != "":
+			anim.play(_anim_idle)
 	if modelo != null:
-		var anim_nuevo = modelo.find_child("AnimationPlayer", true, false)
-		if anim_nuevo is AnimationPlayer:
-			anim = anim_nuevo
-			anim.root_motion_track = NodePath("")
+		_pos_y_modelo = modelo.position.y
+
+func _detectar_animaciones():
+	if anim == null:
+		return
+	var todas := []
+	for lib_name in anim.get_animation_library_list():
+		var lib = anim.get_animation_library(lib_name)
+		for anim_name in lib.get_animation_list():
+			var full = lib_name + "/" + anim_name if lib_name != "" else anim_name
+			todas.append(full)
+	# Buscar animación de correr
+	for a in todas:
+		if "run" in a.to_lower() or "fast" in a.to_lower():
+			_anim_run = a
+			break
+	# Buscar idle
+	for a in todas:
+		if "idle" in a.to_lower():
+			_anim_idle = a
+			break
+	if _anim_idle == "" and todas.size() > 0:
+		_anim_idle = todas[0]
+	if _anim_run == "":
+		_anim_run = _anim_idle
+	# Buscar ataques (todo lo que no sea run/idle)
+	for a in todas:
+		if a != _anim_run and a != _anim_idle:
+			_anim_ataques.append(a)
+	if _anim_ataques.is_empty() and todas.size() > 0:
+		_anim_ataques.append(todas[0])
 
 func _colorear(color: Color):
 	var target = get_node_or_null("ZombieModel")
@@ -89,6 +116,8 @@ func _colorear_recursivo(nodo: Node, color: Color):
 
 # ─── LOOP PRINCIPAL ───────────────────────────────────────────────
 func _physics_process(delta):
+	if modelo != null:
+		modelo.position = Vector3(0, _pos_y_modelo, 0)
 	if muriendo:
 		velocity = Vector3.ZERO
 		move_and_slide()
@@ -150,25 +179,29 @@ func _physics_process(delta):
 	if distancia > distancia_perseguir:
 		velocity.x = 0
 		velocity.z = 0
-		if anim != null and anim.current_animation != "zombie idle/mixamo_com":
-			anim.play("zombie idle/mixamo_com")
+		if anim != null and _anim_idle != "" and anim.current_animation != _anim_idle:
+			anim.play(_anim_idle)
 	elif distancia <= rango_ataque:
 		velocity.x = 0
 		velocity.z = 0
 		if dir_al_objetivo.length() > 0.1:
 			rotation.y = lerp_angle(rotation.y, atan2(dir_al_objetivo.x, dir_al_objetivo.z), 0.2)
-		if anim != null and anim.current_animation != "zombie attack/mixamo_com":
-			anim.play("zombie attack/mixamo_com")
+		if anim != null and _anim_ataques.size() > 0:
+			var ataque_actual = _anim_ataques[_ataque_idx % _anim_ataques.size()]
+			if anim.current_animation != ataque_actual:
+				anim.play(ataque_actual)
 		if puede_atacar:
 			atacar()
+			_ataque_idx += 1
+		_aplicar_separacion()
 	else:
 		var dir = dir_al_objetivo.normalized()
 		velocity.x = dir.x * velocidad
 		velocity.z = dir.z * velocidad
 		if dir.length() > 0.1:
 			rotation.y = lerp_angle(rotation.y, atan2(dir.x, dir.z), 0.15)
-		if anim != null and anim.current_animation != "zombie run/mixamo_com":
-			anim.play("zombie run/mixamo_com")
+		if anim != null and _anim_run != "" and anim.current_animation != _anim_run:
+			anim.play(_anim_run)
 		_aplicar_separacion()
 
 	move_and_slide()
@@ -247,9 +280,9 @@ func _aplicar_separacion():
 		var diff_x = mi_pos.x - z.global_position.x
 		var diff_z = mi_pos.z - z.global_position.z
 		var dist_sq = diff_x * diff_x + diff_z * diff_z
-		if dist_sq < 1.44 and dist_sq > 0.0001:
+		if dist_sq < 4.0 and dist_sq > 0.0001:
 			var dist = sqrt(dist_sq)
-			var factor = (1.2 - dist) * 3.0 / dist
+			var factor = (2.0 - dist) * 2.0 / dist
 			fuerza.x += diff_x * factor
 			fuerza.z += diff_z * factor
 	velocity.x += fuerza.x

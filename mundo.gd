@@ -48,6 +48,7 @@ var boss_spawneado := false
 var timer_spawn_zombie = 1.0
 var intervalo_spawn_zombie = 10.0
 var modo_caos = false
+var timer_kamikaze := 5.0
 
 # 4 puntos de spawn en las esquinas del mapa
 var puntos_spawn := [
@@ -145,6 +146,10 @@ func _process(delta):
 			if timer_spawn_zombie <= 0:
 				spawnear_zombie()
 				timer_spawn_zombie = intervalo_spawn_zombie
+			timer_kamikaze -= delta
+			if timer_kamikaze <= 0:
+				timer_kamikaze = 5.0
+				_spawnear_kamikaze()
 			if timer_fase <= duracion_caos and not modo_caos:
 				activar_modo_caos()
 			if timer_fase <= 0:
@@ -158,6 +163,10 @@ func _process(delta):
 				for i in range(3):
 					spawnear_zombie()
 				timer_spawn_zombie = 5.0
+			timer_kamikaze -= delta
+			if timer_kamikaze <= 0:
+				timer_kamikaze = 5.0
+				_spawnear_kamikaze()
 			if timer_fase <= 0:
 				_iniciar_limpieza()
 
@@ -436,6 +445,20 @@ func _secuencia_boss():
 	if label_timer != null:
 		label_timer.text = ""
 	print("!!!! FINAL BOSS SPAWNEADO CON ESCOLTA !!!!")
+
+func _spawnear_kamikaze():
+	var kamikaze_path = "res://zombie_kamikaze.tscn"
+	if not ResourceLoader.exists(kamikaze_path):
+		return
+	var escena = load(kamikaze_path)
+	var kamikaze = escena.instantiate()
+	add_child(kamikaze)
+	# Posición aleatoria lejos de la planta madre pero dentro del mapa
+	var punto = puntos_spawn[randi() % puntos_spawn.size()]
+	var pos = punto + Vector3(randf_range(-5, 5), 0, randf_range(-5, 5))
+	kamikaze.global_position = pos
+	if kamikaze is CharacterBody3D:
+		kamikaze.velocity = Vector3.ZERO
 
 func obtener_posicion_spawn_zombie_segura() -> Vector3:
 	var punto = puntos_spawn[randi() % puntos_spawn.size()]

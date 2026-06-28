@@ -39,6 +39,7 @@ var volando := false
 var muerto := false
 var puede_recibir_dano := true
 var inventario_abierto := false
+var modo_dev := false
 var agachado := false
 var offset_agachado_actual := 0.0
 var tiempo_ultimo_espacio_modo_dios := -10.0
@@ -225,7 +226,7 @@ func _input(evento):
 		if inventario_abierto:
 			alternar_inventario()
 		else:
-			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+			_alternar_modo_dev()
 
 	if evento.is_action_pressed("inventario"):
 		alternar_inventario()
@@ -1089,6 +1090,66 @@ func _crear_audio_salto():
 	if ResourceLoader.exists(ruta):
 		audio_salto.stream = load(ruta)
 	add_child(audio_salto)
+
+# ─── MODO DESARROLLADOR ──────────────────────────────────────────
+var _dev_label: Label = null
+
+func _alternar_modo_dev():
+	modo_dev = not modo_dev
+	if modo_dev:
+		get_tree().paused = true
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		if not modo_dios:
+			modo_dios = true
+			volando = true
+			_backup_inventario = inventario.duplicate()
+			_backup_desbloqueadas = plantas_desbloqueadas.duplicate()
+			plantas_desbloqueadas = [0, 1, 2, 3, 4, 5]
+			for key in SEMILLAS_KEYS:
+				inventario[key] = 999
+			inventario["agua"] = 999
+			inventario["abono"] = 999
+			_actualizar_hotbar()
+		_mostrar_dev_hud(true)
+	else:
+		get_tree().paused = false
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		_mostrar_dev_hud(false)
+
+func _mostrar_dev_hud(mostrar: bool):
+	if mostrar:
+		if _dev_label == null:
+			var canvas = escena_actual.get_node_or_null("CanvasLayer")
+			if canvas == null:
+				return
+			_dev_label = Label.new()
+			_dev_label.name = "DevLabel"
+			_dev_label.anchor_left = 0.0
+			_dev_label.anchor_top = 0.0
+			_dev_label.offset_left = 10
+			_dev_label.offset_top = 80
+			_dev_label.add_theme_font_size_override("font_size", 16)
+			_dev_label.add_theme_color_override("font_color", Color(0.0, 1.0, 0.0))
+			_dev_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			canvas.add_child(_dev_label)
+		_dev_label.text = "=== MODO DEV ===\nESC: reanudar\nVuelo activo\nWASD: mover\nEspacio: subir\nCtrl: bajar"
+		_dev_label.visible = true
+	else:
+		if _dev_label != null:
+			_dev_label.visible = false
+
+func _input_dev(evento):
+	if not modo_dev:
+		return
+	if evento is InputEventMouseMotion:
+		mover_camara(evento)
+
+func _unhandled_input(evento):
+	if modo_dev:
+		if evento is InputEventMouseMotion:
+			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+			mover_camara(evento)
+			mouse_input = evento.relative
 
 # ─── SISTEMA DE MEJORAS ───────────────────────────────────────────
 func recoger_mejora():

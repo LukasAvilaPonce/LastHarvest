@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://x5qpgsbnguef"
+path="res://.godot/imported/Street_Straight_Crack1.obj-adad87f7d4b8fb5e3fda5a1987d96c3e.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Street_Straight_Crack1.obj-adad87f7d4b8fb5e3fda5a1987d96c3e.mesh"]
+
+source_file="res://assets/zombie kit/Environment/OBJ/Street_Straight_Crack1.obj"
+dest_files=["res://.godot/imported/Street_Straight_Crack1.obj-adad87f7d4b8fb5e3fda5a1987d96c3e.mesh", "res://.godot/imported/Street_Straight_Crack1.obj-adad87f7d4b8fb5e3fda5a1987d96c3e.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false
